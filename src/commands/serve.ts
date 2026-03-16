@@ -55,19 +55,25 @@ export function serveCommand(args: string[]): void {
       if (pathname === "/api/conversation-stats") return json({
         total: q(`SELECT COUNT(*) as n FROM conversation_messages`)[0],
         byType: q(`SELECT type,COUNT(*) as n FROM conversation_messages GROUP BY type ORDER BY n DESC`),
-        byModel: q(`SELECT model,COUNT(*) as n FROM conversation_messages WHERE model IS NOT NULL GROUP BY model ORDER BY n DESC`),
+        byModel: q(`SELECT model,COUNT(*) as n FROM conversation_messages WHERE model IS NOT NULL AND model!='<synthetic>' GROUP BY model ORDER BY n DESC`),
         toolUsage: q(`SELECT tool_name,COUNT(*) as n FROM conversation_messages WHERE tool_name IS NOT NULL GROUP BY tool_name ORDER BY n DESC LIMIT 15`),
         totalTokens: q(`SELECT SUM(COALESCE(input_tokens,0)) as inp,SUM(COALESCE(output_tokens,0)) as outp FROM conversation_messages`)[0],
+        sessions: q(`SELECT COUNT(DISTINCT session_id) as n FROM conversation_messages`)[0],
+        thinkingBlocks: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE has_thinking=1`)[0],
+        errors: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE is_error=1`)[0],
       });
       if (pathname === "/api/stats") return json({
-        sessions: q(`SELECT COUNT(*) as n FROM sessions`)[0],
-        messages: q(`SELECT COUNT(*) as n FROM history_messages`)[0],
+        sessions: q(`SELECT COUNT(DISTINCT session_id) as n FROM conversation_messages`)[0],
+        messages: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE type IN ('user','assistant')`)[0],
+        totalConvLines: q(`SELECT COUNT(*) as n FROM conversation_messages`)[0],
         commits: q(`SELECT COUNT(*) as n FROM commits`)[0],
         projects: q(`SELECT COUNT(*) as n FROM projects`)[0],
         tasks: q(`SELECT status,COUNT(*) as n FROM tasks GROUP BY status`),
         totalCost: q(`SELECT ROUND(SUM(cost_usd),2) as n FROM sessions`)[0],
-        totalTokens: q(`SELECT SUM(input_tokens)+SUM(output_tokens) as n FROM sessions`)[0],
+        totalTokens: q(`SELECT SUM(COALESCE(input_tokens,0))+SUM(COALESCE(output_tokens,0)) as n FROM conversation_messages`)[0],
         totalLines: q(`SELECT SUM(COALESCE(lines_added,0))+SUM(COALESCE(lines_removed,0)) as n FROM sessions`)[0],
+        toolCalls: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE tool_name IS NOT NULL`)[0],
+        thinkingBlocks: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE has_thinking=1`)[0],
         today: today(),
       });
 
@@ -247,10 +253,11 @@ async function load(){
   const allProjects=await F("/api/projects");
 
   const tm={};(stats.tasks||[]).forEach(t=>{tm[t.status]=t.n});
-  $("sub").textContent=stats.today+" · "+daily.length+" days · "+(stats.totalCost?.n?money(stats.totalCost.n):"$0")+" total cost · "+tok(stats.totalTokens?.n)+" tokens";
+  $("sub").textContent=stats.today+" · "+daily.length+" days · "+(stats.totalCost?.n?money(stats.totalCost.n):"$0")+" total cost · "+tok(stats.totalTokens?.n)+" tokens · "+stats.totalConvLines.n.toLocaleString()+" conversation lines";
   $("stats").innerHTML=[
-    [stats.sessions.n,"sessions"],[stats.messages.n.toLocaleString(),"messages"],
-    [stats.commits.n,"commits"],[stats.projects.n,"projects"],
+    [stats.sessions.n.toLocaleString(),"sessions"],[stats.messages.n.toLocaleString(),"messages"],
+    [(stats.toolCalls?.n||0).toLocaleString(),"tool calls"],[(stats.thinkingBlocks?.n||0).toLocaleString(),"thinking"],
+    [stats.commits.n.toLocaleString(),"commits"],[stats.projects.n,"projects"],
     [tm.completed||0,"done"],[tm.in_progress||0,"wip"],[tm.pending||0,"pending"],
     [money(stats.totalCost?.n||0),"cost"],[tok(stats.totalTokens?.n||0),"tokens"]
   ].map(([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>').join("");
@@ -409,7 +416,7 @@ let allSessions=[];
 async function loadSessions(){
   const[sessions,stats]=await Promise.all([F("/api/chat/sessions"),F("/api/conversation-stats")]);
   allSessions=sessions;
-  $("cstats").textContent=stats.total.n.toLocaleString()+" messages · "+(stats.totalTokens?.inp?Math.round((stats.totalTokens.inp+stats.totalTokens.outp)/1e6)+"M tokens":"");
+  $("cstats").textContent=stats.total.n.toLocaleString()+" total lines · "+(stats.byType.find(t=>t.type==="user")?.n||0).toLocaleString()+" user · "+(stats.byType.find(t=>t.type==="assistant")?.n||0).toLocaleString()+" assistant · "+(stats.totalTokens?.inp?tok(stats.totalTokens.inp+stats.totalTokens.outp)+" tokens":"");
 
   // Tool stats bar
   const tools=(stats.toolUsage||[]).slice(0,10);
