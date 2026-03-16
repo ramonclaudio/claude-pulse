@@ -164,12 +164,13 @@ export function serveCommand(args: string[]): void {
 function json(d: unknown) { return new Response(JSON.stringify(d), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } }); }
 function html(b: string) { return new Response(b, { headers: { "content-type": "text/html; charset=utf-8" } }); }
 
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 const PAGES_DIR = join(import.meta.dir, "..", "pages");
 // Cache HTML at startup - no disk read per request
 const pageCache = new Map<string, string>();
 function readPage(name: string): string {
   let cached = pageCache.get(name);
-  if (!cached) { cached = Bun.file(join(PAGES_DIR, name)).textSync(); pageCache.set(name, cached); }
+  if (!cached) { cached = readFileSync(join(PAGES_DIR, name), "utf-8"); pageCache.set(name, cached); }
   return cached;
 }
