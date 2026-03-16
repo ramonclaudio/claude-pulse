@@ -1,0 +1,44 @@
+import type { Database } from "bun:sqlite";
+import { existsSync } from "node:fs";
+import { CLAUDE_CONFIG } from "../utils/paths.ts";
+import type { RootConfig, RootConfigProject } from "../utils/parse.ts";
+import { parseJsonFile } from "../utils/parse.ts";
+
+export async function ingestRootConfig(db: Database): Promise<number> {
+  if (!existsSync(CLAUDE_CONFIG)) return 0;
+
+  const config = await parseJsonFile<RootConfig>(CLAUDE_CONFIG);
+  if (!config?.projects) return 0;
+
+  const update = db.prepare(`
+    UPDATE sessions
+    SET cost_usd = ?, input_tokens = ?, output_tokens = ?, lines_added = ?, lines_removed = ?
+    WHERE id = ?
+  `);
+
+  let count = 0;
+
+  const tx = db.transaction(() => {
+    for (const [, project] of Object.entries(config.projects)) {
+      try {
+        if (!project.lastSessionId) continue;
+
+        update.run(
+          project.lastCost ?? null,
+          project.lastTotalInputTokens ?? null,
+          project.lastTotalOutputTokens ?? null,
+          project.lastLinesAdded ?? null,
+          project.lastLinesRemoved ?? null,
+          project.lastSessionId,
+        );
+
+        count++;
+      } catch (e) {
+        console.error(`Failed to update session cost:`, e);
+      }
+    }
+  });
+
+  tx();
+  return count;
+}
