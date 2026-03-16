@@ -1,10 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chats</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" id="hljs-dark">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" id="hljs-light" disabled>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
 <style>
 :root,html[data-theme="dark"]{--bg:#262624;--sidebar-bg:#262624;--card:#141413;--border:#3d3d3a;--text:#faf9f5;--dim:#73726c;--faint:#53524e;--accent:#d97757;--user-bg:#141413;--user-border:transparent;--code-bg:#1a1a18;--think-text:#73726c;--cream:#faf9f5}
 html[data-theme="light"]{--bg:#faf9f5;--sidebar-bg:#faf9f5;--card:#f0eee6;--border:#e0ddd4;--text:#141413;--dim:#73726c;--faint:#9a9990;--accent:#c2693f;--user-bg:#f0eee6;--user-border:transparent;--code-bg:#f0eee6;--think-text:#73726c;--cream:#141413}
@@ -124,30 +120,82 @@ body{font-family:system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;b
 </div>
 
 <script>
-function setTheme(t){
-  document.documentElement.dataset.theme=t;localStorage.setItem("theme",t);
-  document.getElementById("themeBtn").textContent=t==="light"?"\u263e":"\u2606";
-  document.getElementById("hljs-dark").disabled=(t==="light");
-  document.getElementById("hljs-light").disabled=(t!=="light");
-}
-function toggleTheme(){setTheme(document.documentElement.dataset.theme==="light"?"dark":"light")}
-(function(){const t=localStorage.getItem("theme")||(matchMedia("(prefers-color-scheme:light)").matches?"light":"dark");setTheme(t)})();
-
-// Configure marked for safe rendering with highlight.js
-marked.setOptions({
-  highlight:function(code,lang){
-    if(lang&&hljs.getLanguage(lang))try{return hljs.highlight(code,{language:lang}).value}catch(e){}
-    try{return hljs.highlightAuto(code).value}catch(e){}
-    return code;
-  },
-  breaks:false,gfm:true
-});
+function toggleTheme(){const t=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=t;localStorage.setItem("theme",t);document.getElementById("themeBtn").textContent=t==="light"?"\u263e":"\u2606"}
+(function(){const t=localStorage.getItem("theme")||(matchMedia("(prefers-color-scheme:light)").matches?"light":"dark");document.documentElement.dataset.theme=t;document.getElementById("themeBtn").textContent=t==="light"?"\u263e":"\u2606"})();
 
 const F=s=>fetch(s).then(r=>r.json());
 const $=id=>document.getElementById(id);
 const esc=s=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-// Render markdown for assistant text (safe: marked escapes HTML by default)
-function md(s){if(!s)return"";try{return marked.parse(s)}catch(e){return esc(s)}}
+
+// Minimal markdown parser. No deps.
+function md(src){
+  if(!src)return"";
+  const e=esc;
+  let out="",lines=src.split("\n"),i=0;
+  while(i<lines.length){
+    const L=lines[i];
+    // Fenced code block
+    const fence=L.match(/^```(\w*)/);
+    if(fence){
+      const lang=fence[1];
+      const codeLines=[];
+      i++;
+      while(i<lines.length&&!lines[i].startsWith("```")){codeLines.push(lines[i]);i++}
+      i++; // skip closing ```
+      out+='<pre><code'+(lang?' class="language-'+e(lang)+'"':'')+'>'+e(codeLines.join("\n"))+'</code></pre>';
+      continue;
+    }
+    // Heading
+    const hm=L.match(/^(#{1,4})\s+(.*)/);
+    if(hm){const lv=hm[1].length;out+='<h'+lv+'>'+inline(hm[2])+'</h'+lv+'>';i++;continue}
+    // HR
+    if(/^(-{3,}|\*{3,}|_{3,})\s*$/.test(L)){out+='<hr>';i++;continue}
+    // Blockquote
+    if(L.startsWith("> ")){
+      const bq=[];
+      while(i<lines.length&&lines[i].startsWith("> ")){bq.push(lines[i].slice(2));i++}
+      out+='<blockquote>'+md(bq.join("\n"))+'</blockquote>';
+      continue;
+    }
+    // Unordered list
+    if(/^[\-\*]\s/.test(L)){
+      const items=[];
+      while(i<lines.length&&/^[\-\*]\s/.test(lines[i])){items.push(lines[i].replace(/^[\-\*]\s+/,""));i++}
+      out+='<ul>'+items.map(x=>'<li>'+inline(x)+'</li>').join("")+'</ul>';
+      continue;
+    }
+    // Ordered list
+    if(/^\d+\.\s/.test(L)){
+      const items=[];
+      while(i<lines.length&&/^\d+\.\s/.test(lines[i])){items.push(lines[i].replace(/^\d+\.\s+/,""));i++}
+      out+='<ol>'+items.map(x=>'<li>'+inline(x)+'</li>').join("")+'</ol>';
+      continue;
+    }
+    // Table
+    if(L.includes("|")&&i+1<lines.length&&/^\|?[\s\-:|]+\|/.test(lines[i+1])){
+      const hdr=parseRow(L),rows=[];
+      i+=2; // skip header + separator
+      while(i<lines.length&&lines[i].includes("|")){rows.push(parseRow(lines[i]));i++}
+      out+='<table><thead><tr>'+hdr.map(c=>'<th>'+inline(c)+'</th>').join("")+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td>'+inline(c)+'</td>').join("")+'</tr>').join("")+'</tbody></table>';
+      continue;
+    }
+    // Empty line
+    if(!L.trim()){i++;continue}
+    // Paragraph: collect contiguous non-empty, non-special lines
+    const pLines=[L];i++;
+    while(i<lines.length&&lines[i].trim()&&!/^(```|#{1,4}\s|[-*]\s|\d+\.\s|>|[-*_]{3,}|\|)/.test(lines[i])){pLines.push(lines[i]);i++}
+    out+='<p>'+inline(pLines.join("\n"))+'</p>';
+  }
+  return out;
+}
+function parseRow(r){return r.replace(/^\||\|$/g,"").split("|").map(c=>c.trim())}
+function inline(s){
+  return esc(s)
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>');
+}
 const tok=n=>{if(!n)return"0";if(n>1e6)return(n/1e6).toFixed(1)+"M";if(n>1e3)return(n/1e3).toFixed(1)+"K";return n+""};
 const nm=p=>p?p.split("/").pop():"?";
 
@@ -282,11 +330,7 @@ function renderChat(){
     return'<div class="msg-asst"><div class="text">'+html+'</div>'+(meta.length?'<div class="meta">'+meta.join(" \xb7 ")+'</div>':'')+'</div>';
   }).filter(Boolean).join("")+'</div>';
 
-  requestAnimationFrame(()=>{
-    $("chat").scrollTop=$("chat").scrollHeight;
-    // Highlight any code blocks that marked's highlight option missed
-    $("chat").querySelectorAll("pre code:not(.hljs)").forEach(el=>hljs.highlightElement(el));
-  });
+  requestAnimationFrame(()=>{$("chat").scrollTop=$("chat").scrollHeight});
 }
 
 ["showThinking","showTools","showProgress"].forEach(id=>{
