@@ -34,7 +34,7 @@ export function table(rows: string[][], opts: TableOpts = {}): string {
 
   for (const row of rows) {
     for (let c = 0; c < row.length; c++) {
-      const len = stripAnsi(row[c] ?? "").length;
+      const len = Bun.stringWidth(row[c] ?? "");
       widths[c] = Math.max(widths[c] ?? 0, len);
     }
   }
@@ -50,7 +50,7 @@ export function table(rows: string[][], opts: TableOpts = {}): string {
     const cells: string[] = [];
     for (let c = 0; c < cols; c++) {
       const cell = row[c] ?? "";
-      const rawLen = stripAnsi(cell).length;
+      const rawLen = Bun.stringWidth(cell);
       const pad = widths[c]! - rawLen;
       const isLast = c === cols - 1;
       const right = opts.rightAlign?.has(c);
@@ -101,9 +101,3 @@ export function separator(): string {
   return dim("-".repeat(60));
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────
-
-/** Strip ANSI escape sequences for width calculation. */
-function stripAnsi(s: string): string {
-  return s.replace(/\x1b\[[0-9;]*m/g, "");
-}
