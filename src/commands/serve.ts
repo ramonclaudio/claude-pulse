@@ -14,29 +14,64 @@ export async function serveCommand(args: string[]): Promise<void> {
   const chatBytes = await Bun.file(PAGES_DIR + "/chat.html").bytes();
 
   // Pre-cache heavy queries that don't change between ingests
+  // Consolidated: 18 queries → 5 (one per table)
   const statsCache = { data: null as any, ts: 0 };
   function getStats() {
     const now = Date.now();
     if (statsCache.data && now - statsCache.ts < 5000) return statsCache.data;
+
+    // 1 query for all conversation_messages aggregates (was 12 separate queries)
+    const cm = q(`SELECT
+      COUNT(DISTINCT session_id) as sessions,
+      COUNT(*) as total_lines,
+      COUNT(CASE WHEN type IN ('user','assistant') THEN 1 END) as messages,
+      COUNT(CASE WHEN tool_name IS NOT NULL THEN 1 END) as tool_calls,
+      COUNT(CASE WHEN has_thinking=1 THEN 1 END) as thinking_blocks,
+      COUNT(CASE WHEN is_sidechain=1 THEN 1 END) as sidechain_msgs,
+      COUNT(DISTINCT CASE WHEN agent_id IS NOT NULL THEN agent_id END) as subagents,
+      COUNT(CASE WHEN is_error=1 THEN 1 END) as errors,
+      COUNT(DISTINCT CASE WHEN tool_name='EnterPlanMode' THEN session_id END) as plan_sessions,
+      SUM(COALESCE(input_tokens,0)) as inp,
+      SUM(COALESCE(output_tokens,0)) as outp,
+      ROUND(SUM(CASE
+        WHEN model LIKE '%opus%' THEN COALESCE(input_tokens,0)/1e6*15+COALESCE(output_tokens,0)/1e6*75
+        WHEN model LIKE '%sonnet%' THEN COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15
+        WHEN model LIKE '%haiku%' THEN COALESCE(input_tokens,0)/1e6*1+COALESCE(output_tokens,0)/1e6*5
+        ELSE COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15
+      END),2) as plan_value
+    FROM conversation_messages`)[0] as any;
+
+    // 1 query for sessions aggregates (was 2)
+    const sess = q(`SELECT
+      SUM(COALESCE(lines_added,0))+SUM(COALESCE(lines_removed,0)) as total_lines,
+      COALESCE(SUM(CASE WHEN duration_minutes>0 THEN duration_minutes END),0) as total_minutes
+    FROM sessions`)[0] as any;
+
+    // 1 query for history aggregates (was 2)
+    const hist = q(`SELECT
+      ROUND(SUM(has_paste)*100.0/COUNT(*),1) as paste_rate,
+      SUM(CASE WHEN display LIKE '%/rewind%' THEN 1 ELSE 0 END) as rewinds
+    FROM history_messages`)[0] as any;
+
     statsCache.data = {
-      sessions: q(`SELECT COUNT(DISTINCT session_id) as n FROM conversation_messages`)[0],
-      messages: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE type IN ('user','assistant')`)[0],
-      totalConvLines: q(`SELECT COUNT(*) as n FROM conversation_messages`)[0],
+      sessions: { n: cm.sessions },
+      messages: { n: cm.messages },
+      totalConvLines: { n: cm.total_lines },
       commits: q(`SELECT COUNT(*) as n FROM commits`)[0],
       projects: q(`SELECT COUNT(*) as n FROM projects`)[0],
       tasks: q(`SELECT status,COUNT(*) as n FROM tasks GROUP BY status`),
-      planValue: q(`SELECT ROUND(SUM(CASE WHEN model LIKE '%opus%' THEN COALESCE(input_tokens,0)/1000000.0*15+COALESCE(output_tokens,0)/1000000.0*75 WHEN model LIKE '%sonnet%' THEN COALESCE(input_tokens,0)/1000000.0*3+COALESCE(output_tokens,0)/1000000.0*15 WHEN model LIKE '%haiku%' THEN COALESCE(input_tokens,0)/1000000.0*1+COALESCE(output_tokens,0)/1000000.0*5 ELSE COALESCE(input_tokens,0)/1000000.0*3+COALESCE(output_tokens,0)/1000000.0*15 END),2) as n FROM conversation_messages`)[0],
-      totalTokens: q(`SELECT SUM(COALESCE(input_tokens,0))+SUM(COALESCE(output_tokens,0)) as n FROM conversation_messages`)[0],
-      totalLines: q(`SELECT SUM(COALESCE(lines_added,0))+SUM(COALESCE(lines_removed,0)) as n FROM sessions`)[0],
-      totalMinutes: q(`SELECT COALESCE(SUM(duration_minutes),0) as n FROM sessions WHERE duration_minutes>0`)[0],
-      toolCalls: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE tool_name IS NOT NULL`)[0],
-      thinkingBlocks: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE has_thinking=1`)[0],
-      sidechainMsgs: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE is_sidechain=1`)[0],
-      subagents: q(`SELECT COUNT(DISTINCT agent_id) as n FROM conversation_messages WHERE agent_id IS NOT NULL`)[0],
-      errors: q(`SELECT COUNT(*) as n FROM conversation_messages WHERE is_error=1`)[0],
-      pasteRate: q(`SELECT ROUND(SUM(has_paste)*100.0/COUNT(*),1) as n FROM history_messages`)[0],
-      planSessions: q(`SELECT COUNT(DISTINCT session_id) as n FROM conversation_messages WHERE tool_name='EnterPlanMode'`)[0],
-      rewinds: q(`SELECT COUNT(*) as n FROM history_messages WHERE display LIKE '%/rewind%'`)[0],
+      planValue: { n: cm.plan_value },
+      totalTokens: { n: cm.inp + cm.outp },
+      totalLines: { n: sess.total_lines },
+      totalMinutes: { n: sess.total_minutes },
+      toolCalls: { n: cm.tool_calls },
+      thinkingBlocks: { n: cm.thinking_blocks },
+      sidechainMsgs: { n: cm.sidechain_msgs },
+      subagents: { n: cm.subagents },
+      errors: { n: cm.errors },
+      pasteRate: { n: hist.paste_rate },
+      planSessions: { n: cm.plan_sessions },
+      rewinds: { n: hist.rewinds },
       today: today(),
     };
     statsCache.ts = now;
@@ -45,31 +80,29 @@ export async function serveCommand(args: string[]): Promise<void> {
 
   function computeStreaks() {
     const days = q(`SELECT date FROM daily_stats ORDER BY date`) as { date: string }[];
-    let current = 0, longest = 0, longestStart = "", longestEnd = "", curStart = "";
-    for (let i = 0; i < days.length; i++) {
-      const d = new Date(days[i].date + "T00:00:00");
-      const prev = i > 0 ? new Date(days[i - 1].date + "T00:00:00") : null;
-      if (prev && (d.getTime() - prev.getTime()) === 86400000) {
-        current++;
+    if (!days.length) return { current: 0, longest: 0, longestStart: "", longestEnd: "", totalDays: 0 };
+    // Convert once, compare as epoch ms. No Date objects in loop.
+    const DAY = 86400000;
+    const epochs = days.map(d => new Date(d.date + "T00:00:00").getTime());
+    let longest = 1, longestStart = 0, longestEnd = 0, run = 1, runStart = 0;
+    for (let i = 1; i < epochs.length; i++) {
+      if (epochs[i] - epochs[i - 1] === DAY) {
+        run++;
       } else {
-        if (current > longest) { longest = current; longestStart = curStart; longestEnd = days[i - 1]?.date || curStart; }
-        current = 1; curStart = days[i].date;
+        if (run > longest) { longest = run; longestStart = runStart; longestEnd = i - 1; }
+        run = 1; runStart = i;
       }
     }
-    if (current > longest) { longest = current; longestStart = curStart; longestEnd = days[days.length - 1]?.date || curStart; }
+    if (run > longest) { longest = run; longestStart = runStart; longestEnd = epochs.length - 1; }
+    // Current streak: count backwards from today
+    const todayMs = new Date(today() + "T00:00:00").getTime();
     let curStreak = 0;
-    const t = today();
-    for (let i = days.length - 1; i >= 0; i--) {
-      const d = new Date(days[i].date + "T00:00:00");
-      const diff = Math.abs(new Date(t + "T00:00:00").getTime() - d.getTime()) / 86400000;
-      if (i === days.length - 1 && diff > 1) break;
-      if (i < days.length - 1) {
-        const prev = new Date(days[i + 1].date + "T00:00:00");
-        if ((prev.getTime() - d.getTime()) !== 86400000) break;
-      }
+    for (let i = epochs.length - 1; i >= 0; i--) {
+      if (i === epochs.length - 1 && todayMs - epochs[i] > DAY) break;
+      if (i < epochs.length - 1 && epochs[i + 1] - epochs[i] !== DAY) break;
       curStreak++;
     }
-    return { current: curStreak, longest, longestStart, longestEnd, totalDays: days.length };
+    return { current: curStreak, longest, longestStart: days[longestStart].date, longestEnd: days[longestEnd].date, totalDays: days.length };
   }
 
   Bun.serve({
