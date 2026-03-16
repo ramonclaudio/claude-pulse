@@ -1,11 +1,10 @@
 import type { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
 import { CLAUDE_CONFIG } from "../utils/paths.ts";
-import type { RootConfig, RootConfigProject } from "../utils/parse.ts";
+import type { RootConfig } from "../utils/parse.ts";
 import { parseJsonFile } from "../utils/parse.ts";
 
 export async function ingestRootConfig(db: Database): Promise<number> {
-  if (!existsSync(CLAUDE_CONFIG)) return 0;
+  if (!await Bun.file(CLAUDE_CONFIG).exists()) return 0;
 
   const config = await parseJsonFile<RootConfig>(CLAUDE_CONFIG);
   if (!config?.projects) return 0;

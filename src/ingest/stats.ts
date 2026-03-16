@@ -1,11 +1,10 @@
 import type { Database } from "bun:sqlite";
-import { existsSync } from "node:fs";
 import { STATS_FILE } from "../utils/paths.ts";
 import type { StatsCache } from "../utils/parse.ts";
 import { parseJsonFile } from "../utils/parse.ts";
 
 export async function ingestStats(db: Database): Promise<number> {
-  if (!existsSync(STATS_FILE)) return 0;
+  if (!await Bun.file(STATS_FILE).exists()) return 0;
 
   const stats = await parseJsonFile<StatsCache>(STATS_FILE);
   if (!stats?.dailyActivity?.length) return 0;
