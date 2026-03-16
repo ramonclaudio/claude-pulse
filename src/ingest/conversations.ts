@@ -35,6 +35,8 @@ export async function ingestConversations(db: Database): Promise<number> {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_conv_role ON conversation_messages(role)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_conv_tool ON conversation_messages(tool_name)`);
   db.exec(`CREATE INDEX IF NOT EXISTS idx_conv_agent ON conversation_messages(agent_id)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_conv_session_type ON conversation_messages(session_id, type)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_conv_session_role ON conversation_messages(session_id, role)`);
   db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS conversation_fts USING fts5(content, content='conversation_messages', content_rowid='id')`);
 
   db.exec(`DELETE FROM conversation_messages`);

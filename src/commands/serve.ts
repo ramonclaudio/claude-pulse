@@ -31,10 +31,21 @@ export function serveCommand(args: string[]): void {
         return json(q(`SELECT hm.timestamp,hm.project_path,hm.display FROM history_fts f JOIN history_messages hm ON hm.id=f.rowid WHERE history_fts MATCH ? ORDER BY hm.timestamp DESC LIMIT 30`, query));
       }
       // Conversation endpoints
-      if (pathname === "/api/chat/sessions") return json(q(`SELECT DISTINCT session_id, MIN(timestamp) as first_ts, MAX(timestamp) as last_ts, COUNT(*) as msg_count, (SELECT content FROM conversation_messages c2 WHERE c2.session_id=c.session_id AND c2.role='user' AND c2.content IS NOT NULL ORDER BY c2.timestamp LIMIT 1) as first_msg FROM conversation_messages c WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT 100`));
+      if (pathname === "/api/chat/sessions") {
+        const sessions = q(`SELECT session_id, MIN(timestamp) as first_ts, MAX(timestamp) as last_ts, COUNT(*) as msg_count FROM conversation_messages WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT 100`);
+        const firstMsg = db.prepare(`SELECT content FROM conversation_messages WHERE session_id=? AND role='user' AND content IS NOT NULL ORDER BY rowid LIMIT 1`);
+        for (const s of sessions as any[]) s.first_msg = firstMsg.get(s.session_id)?.content?.slice(0, 120) || null;
+        return json(sessions);
+      }
       if (pathname.startsWith("/api/chat/")) {
         const sid = pathname.slice(10);
-        if (sid) return json(q(`SELECT uuid,parent_uuid,type,role,content,model,timestamp,tool_name,tool_use_id,input_tokens,output_tokens FROM conversation_messages WHERE session_id=? ORDER BY rowid`, sid));
+        if (sid) {
+          const limit = parseInt(searchParams.get("limit") || "500");
+          const offset = parseInt(searchParams.get("offset") || "0");
+          const total = q(`SELECT COUNT(*) as n FROM conversation_messages WHERE session_id=?`, sid)[0] as any;
+          const msgs = q(`SELECT uuid,parent_uuid,type,role,content,model,timestamp,tool_name,tool_use_id,input_tokens,output_tokens FROM conversation_messages WHERE session_id=? ORDER BY rowid LIMIT ? OFFSET ?`, sid, limit, offset);
+          return json({ total: total.n, msgs, offset, limit });
+        }
       }
       if (pathname === "/api/chat-search") {
         const query = searchParams.get("q") || "";
@@ -414,12 +425,30 @@ function renderSessions(sessions){
 }
 
 let currentMsgs=[];
+let currentSid="";
+let chatTotal=0;
 async function loadChat(el){
   document.querySelectorAll(".sess-item").forEach(e=>e.classList.remove("active"));
   el.classList.add("active");
-  const sid=el.dataset.id;
-  currentMsgs=await F("/api/chat/"+sid);
+  currentSid=el.dataset.id;
+  $("chat").innerHTML='<div class="empty">loading...</div>';
+  const data=await F("/api/chat/"+currentSid+"?limit=500&offset=0");
+  currentMsgs=data.msgs;
+  chatTotal=data.total;
   renderChat();
+  if(chatTotal>500){
+    const note=document.createElement("div");
+    note.className="empty";
+    note.style.padding="8px";
+    note.style.cursor="pointer";
+    note.textContent="Showing last 500 of "+chatTotal+" messages. Click to load all.";
+    note.onclick=async()=>{
+      note.textContent="loading all...";
+      const all=await F("/api/chat/"+currentSid+"?limit="+chatTotal+"&offset=0");
+      currentMsgs=all.msgs;renderChat();
+    };
+    $("chat").prepend(note);
+  }
 }
 
 function renderChat(){
@@ -492,7 +521,8 @@ function renderChat(){
     return '<div class="msg '+cls+'"><div class="role">'+role+'</div>'+html+model+tokens+'</div>';
   }).filter(Boolean).join("")||'<div class="empty">empty session</div>';
 
-  $("chat").scrollTop=0;
+  // Scroll to bottom (most recent messages)
+  requestAnimationFrame(()=>{$("chat").scrollTop=$("chat").scrollHeight});
 }
 
 // Re-render on filter change
@@ -505,14 +535,15 @@ $("csearch").addEventListener("input", async function(){
   const q=this.value.trim();
   if(!q){renderSessions(allSessions);return}
   if(q.length<2)return;
-  const res=await F("/api/chat-search?q="+encodeURIComponent(q));
-  // Group by session
-  const sids=[...new Set(res.map(r=>r.session_id))];
-  const fake=sids.map(sid=>{
-    const msgs=res.filter(r=>r.session_id===sid);
-    return{session_id:sid,first_ts:msgs[0]?.timestamp,msg_count:msgs.length,first_msg:msgs[0]?.content};
-  });
-  renderSessions(fake);
+  try{
+    const res=await F("/api/chat-search?q="+encodeURIComponent(q));
+    const sids=[...new Set(res.map(r=>r.session_id))];
+    const fake=sids.map(sid=>{
+      const msgs=res.filter(r=>r.session_id===sid);
+      return{session_id:sid,first_ts:msgs[0]?.timestamp,msg_count:msgs.length,first_msg:msgs[0]?.content};
+    });
+    renderSessions(fake);
+  }catch(e){renderSessions([])}
 });
 
 loadSessions();
