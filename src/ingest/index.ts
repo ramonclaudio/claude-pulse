@@ -8,8 +8,10 @@ import { ingestStats } from "./stats.ts";
 import { ingestTasks } from "./tasks.ts";
 import { ingestRootConfig } from "./root-config.ts";
 import { ingestConversations } from "./conversations.ts";
+import { ingestBillingBlocks } from "./billing-blocks.ts";
 
 const TABLES = [
+  "billing_blocks",
   "conversation_fts",
   "conversation_messages",
   "history_fts",
@@ -34,6 +36,7 @@ const steps: IngestStep[] = [
   { name: "stats", fn: ingestStats },
   { name: "tasks", fn: ingestTasks },
   { name: "root-config", fn: ingestRootConfig },
+  { name: "billing-blocks", fn: ingestBillingBlocks },
   { name: "conversations", fn: ingestConversations },
 ];
 

@@ -113,7 +113,8 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 <div class="c"><h2>Commits per Day</h2><canvas id="c_cpd" height="150"></canvas></div>
 <div class="c"><h2>Branches</h2><div id="p_branches" class="sc"></div></div>
 </div>
-<div class="g2">
+<div class="g3">
+<div class="c"><h2>Billing Blocks (5hr)</h2><div id="p_billing"></div></div>
 <div class="c"><h2>Activity Heatmap</h2><div class="hm" id="heatmap"></div><div class="lg"><span class="d" style="background:var(--card);border:1px solid var(--border)"></span>0<span class="d" style="background:#4a2d1f"></span><span class="d" style="background:#8b4c30"></span><span class="d" style="background:#c2693f"></span><span class="d" style="background:#d97757"></span>more</div></div>
 <div class="c"><h2>Work in Progress</h2><div class="sc" id="wip"></div></div>
 </div>
@@ -325,6 +326,37 @@ async function load(){
 
   // WIP
   $("wip").innerHTML=gitState.length?gitState.map(g=>'<div class="wip-row"><span class="pj">'+e(nm(g.project_path))+'</span><span class="info">'+g.dirty_file_count+' dirty'+(g.stash_count?' · '+g.stash_count+' stash':'')+(g.current_branch?' · '+g.current_branch:'')+'</span></div>').join(""):'<div style="color:var(--dim)">all clean</div>';
+
+  // Billing Blocks
+  const billing=await F("/api/billing-blocks");
+  if(billing.length){
+    const cur=billing.find(b=>b.is_current);
+    const past=billing.filter(b=>!b.is_current).slice(0,6);
+    const bmax=Math.max(...billing.map(b=>b.total_cost||0),0.01);
+    let html="";
+    if(cur){
+      const elapsed=Math.round((Date.now()-cur.block_start)/60000);
+      const remaining=300-elapsed;
+      html+='<div style="margin-bottom:8px;padding:8px;border:1px solid var(--accent);border-radius:4px;background:rgba(217,119,87,0.08)">';
+      html+='<div style="font-size:10px;color:var(--accent);font-weight:600;margin-bottom:4px">CURRENT BLOCK</div>';
+      html+='<div style="display:flex;gap:12px;align-items:baseline">';
+      html+='<span style="font-size:20px;font-weight:700;font-family:\'Fira Code\',monospace;color:var(--cream)">'+money(cur.total_cost)+'</span>';
+      html+='<span style="font-size:11px;color:var(--dim)">'+cur.session_count+' sessions</span>';
+      html+='<span style="font-size:11px;color:var(--dim)">'+tok((cur.total_input_tokens||0)+(cur.total_output_tokens||0))+'t</span>';
+      html+='</div>';
+      html+='<div style="font-size:10px;color:var(--dim);margin-top:4px">'+elapsed+'m elapsed · '+(remaining>0?remaining+'m remaining':'ended')+' · $'+(cur.burn_rate_cost_per_min*60).toFixed(2)+'/hr burn</div>';
+      html+='</div>';
+    }
+    if(past.length){
+      html+=past.map(b=>{
+        const d=new Date(b.block_start);
+        const label=d.toLocaleDateString("en",{month:"short",day:"numeric"})+' '+d.toLocaleTimeString("en",{hour:"2-digit",minute:"2-digit",hour12:false});
+        const w=Math.round((b.total_cost||0)/bmax*120);
+        return '<div class="br"><span class="nm" style="width:90px">'+label+'</span><span class="b" style="width:'+w+'px;background:var(--accent)"></span><span class="v">'+money(b.total_cost)+'</span><span class="v" style="color:var(--dim)">'+b.session_count+'s</span></div>';
+      }).join("");
+    }
+    $("p_billing").innerHTML=html;
+  }else $("p_billing").innerHTML='<div style="color:var(--dim);font-size:11px">no billing data (run ingest with cost data)</div>';
 
   // Tasks
   function renderTasks(f){

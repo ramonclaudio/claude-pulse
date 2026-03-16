@@ -94,8 +94,22 @@ CREATE INDEX IF NOT EXISTS idx_history_messages_project_path ON history_messages
 CREATE INDEX IF NOT EXISTS idx_history_messages_timestamp ON history_messages(timestamp);
 CREATE INDEX IF NOT EXISTS idx_tasks_suite_id ON tasks(suite_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+CREATE TABLE IF NOT EXISTS billing_blocks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  block_start INTEGER UNIQUE,
+  block_end INTEGER,
+  status TEXT,
+  total_cost REAL,
+  total_input_tokens INTEGER,
+  total_output_tokens INTEGER,
+  session_count INTEGER,
+  burn_rate_tokens_per_min REAL,
+  burn_rate_cost_per_min REAL
+);
+
 CREATE INDEX IF NOT EXISTS idx_commits_project_path ON commits(project_path);
 CREATE INDEX IF NOT EXISTS idx_commits_date ON commits(date);
+CREATE INDEX IF NOT EXISTS idx_billing_blocks_start ON billing_blocks(block_start);
 `;
 
 export function createSchema(db: Database): void {

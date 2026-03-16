@@ -102,6 +102,10 @@ export async function serveCommand(args: string[]): Promise<void> {
       "/api/paste-stats": () => Response.json(q(`SELECT COUNT(*) as total,SUM(has_paste) as with_paste,ROUND(SUM(has_paste)*100.0/COUNT(*),1) as pct FROM history_messages`)[0], { headers: CORS }),
       "/api/project-staleness": () => Response.json(q(`SELECT name,type,path,last_commit_date,last_session_date,total_commits,total_sessions FROM projects ORDER BY COALESCE(last_commit_date,last_session_date,'1970') DESC`), { headers: CORS }),
       "/api/streaks": () => Response.json(computeStreaks(), { headers: CORS }),
+      "/api/billing-blocks": () => {
+        const blocks = q(`SELECT *, CASE WHEN block_start = ? THEN 1 ELSE 0 END as is_current FROM billing_blocks ORDER BY block_start DESC LIMIT 20`, Math.floor(Date.now() / 18000000) * 18000000);
+        return Response.json(blocks, { headers: CORS });
+      },
       "/api/plan-mode": () => Response.json(q(`SELECT session_id,COUNT(*) as n FROM conversation_messages WHERE tool_name='EnterPlanMode' GROUP BY session_id ORDER BY n DESC`), { headers: CORS }),
       "/api/conversation-stats": () => Response.json({
         total: q(`SELECT COUNT(*) as n FROM conversation_messages`)[0],
