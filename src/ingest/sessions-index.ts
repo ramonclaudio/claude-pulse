@@ -1,6 +1,6 @@
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { PROJECTS_DIR } from "../utils/paths.ts";
 import type { SessionsIndexFile } from "../utils/parse.ts";
 import { safeParseJson } from "../utils/parse.ts";
@@ -10,7 +10,7 @@ type IndexData =
   | { type: "fallback"; dirPath: string };
 
 export async function ingestSessionsIndex(db: Database): Promise<number> {
-  if (!existsSync(PROJECTS_DIR)) return 0;
+  if (Bun.spawnSync(["test", "-d", PROJECTS_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return 0;
 
   const insertSession = db.prepare(`
     INSERT OR REPLACE INTO sessions
@@ -26,13 +26,13 @@ export async function ingestSessionsIndex(db: Database): Promise<number> {
   let count = 0;
   const projectAgg: Record<string, { latest: number; sessions: number; messages: number }> = {};
 
-  const dirs = readdirSync(PROJECTS_DIR, { withFileTypes: true });
+  let dirNames: string[];
+  try { dirNames = [...new Glob("*/").scanSync({ cwd: PROJECTS_DIR, onlyFiles: false })]; } catch { return 0; }
 
   // Phase 1: Read all index files async before transaction
   const indexDataList: IndexData[] = [];
-  for (const dir of dirs) {
-    if (!dir.isDirectory()) continue;
-    const dirPath = PROJECTS_DIR + "/" + dir.name;
+  for (const raw of dirNames) {
+    const dirPath = PROJECTS_DIR + "/" + raw.replace(/\/$/, "");
     const indexPath = dirPath + "/sessions-index.json";
 
     if (await Bun.file(indexPath).exists()) {

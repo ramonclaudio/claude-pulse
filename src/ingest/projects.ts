@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { Glob } from "bun";
 import { DEVELOPER_DIR } from "../utils/paths.ts";
 import {
   isGitRepo,
@@ -20,23 +20,22 @@ const TYPED_PARENTS = new Map([
 
 function listProjects(): { path: string; type: string }[] {
   const projects: { path: string; type: string }[] = [];
-  if (!existsSync(DEVELOPER_DIR)) return projects;
+  if (Bun.spawnSync(["test", "-d", DEVELOPER_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return projects;
 
-  const topLevel = readdirSync(DEVELOPER_DIR, { withFileTypes: true });
-  for (const entry of topLevel) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
-    if (SKIP_DIRS.has(entry.name)) continue;
+  const topLevel = [...new Glob("*/").scanSync({ cwd: DEVELOPER_DIR, onlyFiles: false })].map(d => d.replace(/\/$/, ""));
+  for (const name of topLevel) {
+    if (name.startsWith(".")) continue;
+    if (SKIP_DIRS.has(name)) continue;
 
-    const parentPath = DEVELOPER_DIR + "/" + entry.name;
-    const projectType = TYPED_PARENTS.get(entry.name);
+    const parentPath = DEVELOPER_DIR + "/" + name;
+    const projectType = TYPED_PARENTS.get(name);
 
     if (projectType) {
-      // Scan children as individual projects
       try {
-        const children = readdirSync(parentPath, { withFileTypes: true });
+        const children = [...new Glob("*/").scanSync({ cwd: parentPath, onlyFiles: false })].map(d => d.replace(/\/$/, ""));
         for (const child of children) {
-          if (!child.isDirectory() || child.name.startsWith(".")) continue;
-          projects.push({ path: parentPath + "/" + child.name, type: projectType });
+          if (child.startsWith(".")) continue;
+          projects.push({ path: parentPath + "/" + child, type: projectType });
         }
       } catch (e) {
         console.error(`Failed to scan ${parentPath}:`, e);
@@ -81,7 +80,7 @@ export async function ingestProjects(db: Database): Promise<number> {
       try {
         const name = path.split("/").pop() || path;
         const hasGit = isGitRepo(path);
-        const hasClaudeMd = existsSync(path + "/CLAUDE.md");
+        const hasClaudeMd = Bun.file(path + "/CLAUDE.md").size > 0;
 
         let lastCommitDate: string | null = null;
         let totalCommits = 0;

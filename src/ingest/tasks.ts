@@ -1,6 +1,5 @@
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { existsSync, readdirSync } from "node:fs";
 import { TASKS_DIR } from "../utils/paths.ts";
 import { safeParseJson } from "../utils/parse.ts";
 
@@ -17,7 +16,7 @@ interface RawTask {
 }
 
 export async function ingestTasks(db: Database): Promise<number> {
-  if (!existsSync(TASKS_DIR)) return 0;
+  if (Bun.spawnSync(["test", "-d", TASKS_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return 0;
 
   const insert = db.prepare(`
     INSERT OR REPLACE INTO tasks (id, suite_id, subject, description, status, owner, blocks, blocked_by, is_internal)
@@ -25,13 +24,13 @@ export async function ingestTasks(db: Database): Promise<number> {
   `);
 
   let count = 0;
-  const suiteDirs = readdirSync(TASKS_DIR, { withFileTypes: true });
+  let suiteDirNames: string[];
+  try { suiteDirNames = [...new Glob("*/").scanSync({ cwd: TASKS_DIR, onlyFiles: false })]; } catch { return 0; }
 
   // Phase 1: Read all task files async before transaction
   const taskData: { suiteId: string; file: string; task: RawTask }[] = [];
-  for (const suiteDir of suiteDirs) {
-    if (!suiteDir.isDirectory()) continue;
-    const suiteId = suiteDir.name;
+  for (const raw of suiteDirNames) {
+    const suiteId = raw.replace(/\/$/, "");
     const suitePath = TASKS_DIR + "/" + suiteId;
 
     let files: string[];

@@ -1,5 +1,3 @@
-import { existsSync } from "node:fs";
-
 export const HOME = Bun.env.HOME!;
 export const CLAUDE_HOME = HOME + "/.claude";
 export const CLAUDE_CONFIG = HOME + "/.claude.json";
@@ -51,7 +49,7 @@ export function decodeProjectPath(encoded: string): string {
     for (let end = parts.length; end > i; end--) {
       const segment = parts.slice(i, end).join("-");
       const candidate = path + "/" + segment;
-      if (existsSync(candidate)) {
+      if (Bun.spawnSync(["test", "-e", candidate], { stdout: "ignore", stderr: "ignore" }).exitCode === 0) {
         path = candidate;
         i = end;
         matched = true;
