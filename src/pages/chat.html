@@ -362,17 +362,17 @@ function renderChat(){
 
 $("csearch").addEventListener("input",async function(){
   const q=this.value.trim();
-  if(!q){renderSessions(allSessions);return}
+  if(!q){renderSessions(allSessions,allSessions.length>=sessOffset);return}
   if(q.length<2)return;
   try{
     const res=await F("/api/chat-search?q="+encodeURIComponent(q));
     const sids=[...new Set(res.map(r=>r.session_id))];
-    const fake=sids.map(sid=>{
+    const results=sids.map(sid=>{
       const msgs=res.filter(r=>r.session_id===sid);
-      return{session_id:sid,first_ts:msgs[0]?.timestamp,last_ts:msgs[0]?.timestamp,msg_count:msgs.length,first_msg:msgs[0]?.content};
+      return{session_id:sid,first_ts:msgs[0]?.timestamp,last_ts:msgs[0]?.timestamp,msg_count:msgs.length,first_msg:msgs[0]?.content?.slice(0,120)};
     });
-    renderSessions(fake);
-  }catch(e){renderSessions([])}
+    renderSessions(results,false);
+  }catch(e){renderSessions([],false)}
 });
 
 loadSessions();

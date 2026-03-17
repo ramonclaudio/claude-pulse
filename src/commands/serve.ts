@@ -190,7 +190,10 @@ export async function serveCommand(args: string[]): Promise<void> {
       "/api/search": (req) => {
         const query = new URL(req.url).searchParams.get("q") || "";
         if (!query) return Response.json([], { headers: CORS });
-        return Response.json(q(`SELECT hm.timestamp,hm.project_path,hm.display FROM history_fts f JOIN history_messages hm ON hm.id=f.rowid WHERE history_fts MATCH ? ORDER BY hm.timestamp DESC LIMIT 30`, query), { headers: CORS });
+        try {
+          const safe = '"' + query.replace(/"/g, "") + '"';
+          return Response.json(q(`SELECT hm.timestamp,hm.project_path,hm.display FROM history_fts f JOIN history_messages hm ON hm.id=f.rowid WHERE history_fts MATCH ? ORDER BY hm.timestamp DESC LIMIT 30`, safe), { headers: CORS });
+        } catch { return Response.json([], { headers: CORS }); }
       },
       "/api/chat/sessions": (req) => {
         const sp = new URL(req.url).searchParams;
@@ -204,7 +207,11 @@ export async function serveCommand(args: string[]): Promise<void> {
       "/api/chat-search": (req) => {
         const query = new URL(req.url).searchParams.get("q") || "";
         if (!query) return Response.json([], { headers: CORS });
-        return Response.json(q(`SELECT cm.session_id,cm.timestamp,cm.role,cm.content FROM conversation_fts f JOIN conversation_messages cm ON cm.id=f.rowid WHERE conversation_fts MATCH ? ORDER BY cm.timestamp DESC LIMIT 40`, query), { headers: CORS });
+        try {
+          // Quote the query for FTS5 phrase matching, strip chars that break MATCH syntax
+          const safe = '"' + query.replace(/"/g, "") + '"';
+          return Response.json(q(`SELECT cm.session_id,cm.timestamp,cm.role,cm.content FROM conversation_fts f JOIN conversation_messages cm ON cm.id=f.rowid WHERE conversation_fts MATCH ? ORDER BY cm.timestamp DESC LIMIT 40`, safe), { headers: CORS });
+        } catch { return Response.json([], { headers: CORS }); }
       },
       "/api/chat/:sessionId": (req) => {
         const sid = req.params.sessionId;
