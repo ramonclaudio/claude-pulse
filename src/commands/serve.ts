@@ -208,9 +208,20 @@ export async function serveCommand(args: string[]): Promise<void> {
         const query = new URL(req.url).searchParams.get("q") || "";
         if (!query) return Response.json([], { headers: CORS });
         try {
-          // Quote the query for FTS5 phrase matching, strip chars that break MATCH syntax
           const safe = '"' + query.replace(/"/g, "") + '"';
-          return Response.json(q(`SELECT cm.session_id,cm.timestamp,cm.role,cm.content FROM conversation_fts f JOIN conversation_messages cm ON cm.id=f.rowid WHERE conversation_fts MATCH ? ORDER BY cm.timestamp DESC LIMIT 40`, safe), { headers: CORS });
+          const results = q(`SELECT cm.session_id,cm.timestamp,cm.role,cm.content
+            FROM conversation_fts f JOIN conversation_messages cm ON cm.id=f.rowid
+            WHERE conversation_fts MATCH ? AND cm.type IN ('user','assistant')
+            ORDER BY cm.timestamp DESC LIMIT 80`, safe) as {session_id:string;timestamp:string;role:string;content:string}[];
+          // Strip tool/thinking XML, return only clean text previews
+          const cleaned = results.filter(r => {
+            const c = r.content || "";
+            return !c.startsWith("<tool_") && !c.startsWith("<thinking>");
+          }).slice(0, 40).map(r => ({
+            ...r,
+            content: (r.content || "").replace(/<(thinking|tool_use|tool_result)[^>]*>[\s\S]*?<\/\1>/g, "").trim().slice(0, 200)
+          }));
+          return Response.json(cleaned, { headers: CORS });
         } catch { return Response.json([], { headers: CORS }); }
       },
       "/api/chat/:sessionId": (req) => {
