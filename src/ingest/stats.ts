@@ -9,7 +9,7 @@ export async function ingestStats(db: Database): Promise<number> {
   const stats = await parseJsonFile<StatsCache>(STATS_FILE);
   if (!stats?.dailyActivity?.length) return 0;
 
-  const insert = db.prepare(`
+  const insert = db.query(`
     INSERT OR REPLACE INTO daily_stats (date, message_count, session_count, tool_call_count)
     VALUES (?, ?, ?, ?)
   `);

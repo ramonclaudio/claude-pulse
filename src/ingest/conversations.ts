@@ -40,7 +40,7 @@ export async function ingestConversations(db: Database): Promise<number> {
 
   db.exec(`DELETE FROM conversation_messages`);
 
-  const insert = db.prepare(`INSERT INTO conversation_messages (session_id,uuid,parent_uuid,type,role,content,model,timestamp,is_sidechain,agent_id,tool_name,tool_use_id,input_tokens,output_tokens,has_thinking,thinking_length,is_error,raw_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const insert = db.query(`INSERT INTO conversation_messages (session_id,uuid,parent_uuid,type,role,content,model,timestamp,is_sidechain,agent_id,tool_name,tool_use_id,input_tokens,output_tokens,has_thinking,thinking_length,is_error,raw_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
 
   let total = 0;
   let dirs: string[];

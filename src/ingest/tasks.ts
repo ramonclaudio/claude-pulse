@@ -18,7 +18,7 @@ interface RawTask {
 export async function ingestTasks(db: Database): Promise<number> {
   if (Bun.spawnSync(["test", "-d", TASKS_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return 0;
 
-  const insert = db.prepare(`
+  const insert = db.query(`
     INSERT OR REPLACE INTO tasks (id, suite_id, subject, description, status, owner, blocks, blocked_by, is_internal)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);

@@ -9,7 +9,7 @@ export async function ingestRootConfig(db: Database): Promise<number> {
   const config = await parseJsonFile<RootConfig>(CLAUDE_CONFIG);
   if (!config?.projects) return 0;
 
-  const update = db.prepare(`
+  const update = db.query(`
     UPDATE sessions
     SET cost_usd = ?, input_tokens = ?, output_tokens = ?, lines_added = ?, lines_removed = ?
     WHERE id = ?

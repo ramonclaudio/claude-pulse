@@ -57,18 +57,18 @@ export async function ingestProjects(db: Database): Promise<number> {
   const projects = listProjects();
   if (projects.length === 0) return 0;
 
-  const insertProject = db.prepare(`
+  const insertProject = db.query(`
     INSERT OR REPLACE INTO projects (path, name, type, has_git, has_claude_md, last_commit_date, total_commits)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const insertGitState = db.prepare(`
+  const insertGitState = db.query(`
     INSERT OR REPLACE INTO project_git_state
     (project_path, branch_count, stash_count, dirty_file_count, uncommitted_changes, current_branch, last_captured)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const insertCommit = db.prepare(`
+  const insertCommit = db.query(`
     INSERT OR REPLACE INTO commits (hash, project_path, author, date, message, commit_type, commit_scope)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);

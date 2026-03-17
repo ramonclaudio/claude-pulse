@@ -11,13 +11,13 @@ type IndexData =
 export async function ingestSessionsIndex(db: Database): Promise<number> {
   if (Bun.spawnSync(["test", "-d", PROJECTS_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return 0;
 
-  const insertSession = db.prepare(`
+  const insertSession = db.query(`
     INSERT OR REPLACE INTO sessions
     (id, project_path, started_at, ended_at, message_count, duration_minutes, first_prompt, summary, git_branch, is_sidechain)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  const updateProject = db.prepare(`
+  const updateProject = db.query(`
     UPDATE projects SET last_session_date = ?, total_sessions = ?, total_messages = ?
     WHERE path = ?
   `);

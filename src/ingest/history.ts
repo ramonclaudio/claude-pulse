@@ -14,7 +14,7 @@ export async function ingestHistory(db: Database): Promise<number> {
   const entries = result.values as HistoryEntry[];
   if (entries.length === 0) return 0;
 
-  const insert = db.prepare(`
+  const insert = db.query(`
     INSERT INTO history_messages (session_id, project_path, display, timestamp, has_paste)
     VALUES (?, ?, ?, ?, ?)
   `);

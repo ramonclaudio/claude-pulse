@@ -70,7 +70,7 @@ export async function wipCommand(_args: string[]): Promise<void> {
 
   // Stashes
   const stashed = db
-    .prepare(
+    .query(
       `SELECT p.path, p.name, g.stash_count
        FROM project_git_state g
        JOIN projects p ON p.path = g.project_path
