@@ -118,11 +118,11 @@ export async function parseJsonFile<T>(path: string): Promise<T> {
  */
 export async function parseJsonlFile<T>(path: string): Promise<T[]> {
   const text = await Bun.file(path).text();
-  const lines = text.split("\n").filter(Boolean);
-  const results: T[] = [];
-  for (const line of lines) {
-    const parsed = safeParseJson<T>(line);
-    if (parsed !== null) results.push(parsed);
+  try {
+    return Bun.JSONL.parse(text) as T[];
+  } catch {
+    // Fallback: some lines may be invalid, use chunk parser for error recovery
+    const result = Bun.JSONL.parseChunk(text);
+    return result.values as T[];
   }
-  return results;
 }

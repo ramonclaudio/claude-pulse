@@ -2,14 +2,17 @@ import type { Database } from "bun:sqlite";
 import { HISTORY_FILE } from "../utils/paths.ts";
 import { decodeProjectPath } from "../utils/paths.ts";
 import type { HistoryEntry } from "../utils/parse.ts";
-import { safeParseJson } from "../utils/parse.ts";
 
 export async function ingestHistory(db: Database): Promise<number> {
   if (!await Bun.file(HISTORY_FILE).exists()) return 0;
 
   const text = await Bun.file(HISTORY_FILE).text();
-  const lines = text.split("\n").filter(Boolean);
-  if (lines.length === 0) return 0;
+  if (!text.trim()) return 0;
+
+  // Native JSONL parser (SIMD-accelerated C++ parser)
+  const result = Bun.JSONL.parseChunk(text);
+  const entries = result.values as HistoryEntry[];
+  if (entries.length === 0) return 0;
 
   const insert = db.prepare(`
     INSERT INTO history_messages (session_id, project_path, display, timestamp, has_paste)
@@ -19,9 +22,8 @@ export async function ingestHistory(db: Database): Promise<number> {
   let count = 0;
 
   const tx = db.transaction(() => {
-    for (const line of lines) {
+    for (const entry of entries) {
       try {
-        const entry = safeParseJson<HistoryEntry>(line);
         if (!entry?.display) continue;
 
         const projectPath = entry.project ? decodeProjectPath(entry.project) : null;

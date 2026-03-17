@@ -46,8 +46,8 @@ export async function ingestConversations(db: Database): Promise<number> {
   let dirs: string[];
   try { dirs = [...new Glob("*/").scanSync({ cwd: PROJECTS_DIR, onlyFiles: false })].map(d => d.replace(/\/$/, "")); } catch { return 0; }
 
-  // Phase 1: Read all files async before transaction
-  const fileData: { sessionId: string; agentId: string | null; text: string }[] = [];
+  // Phase 1: Read and parse all files async (Bun.JSONL for native SIMD parsing)
+  const fileData: { sessionId: string; agentId: string | null; records: any[] }[] = [];
   for (const dir of dirs) {
     const projDir = PROJECTS_DIR + "/" + dir;
     let files: string[];
@@ -61,18 +61,17 @@ export async function ingestConversations(db: Database): Promise<number> {
 
       try {
         const text = await Bun.file(path).text();
-        fileData.push({ sessionId, agentId, text });
+        const result = Bun.JSONL.parseChunk(text);
+        if (result.values.length) fileData.push({ sessionId, agentId, records: result.values });
       } catch { continue; }
     }
   }
 
-  // Phase 2: Insert in transaction with pre-loaded data
+  // Phase 2: Insert in transaction with pre-parsed data
   const tx = db.transaction(() => {
-    for (const { sessionId, agentId, text } of fileData) {
-      for (const line of text.split("\n")) {
-        if (!line.trim()) continue;
-        let d: any;
-        try { d = JSON.parse(line); } catch { continue; }
+    for (const { sessionId, agentId, records } of fileData) {
+      for (const d of records) {
+        if (!d || typeof d !== "object") continue;
 
         const rawType = d.type || "unknown";
         const msg = d.message;
