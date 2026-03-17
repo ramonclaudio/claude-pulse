@@ -1,6 +1,12 @@
 import { getDb } from "../db/connection.ts";
 import { today, billingBlockStart } from "../utils/dates.ts";
 
+interface Row { [key: string]: unknown }
+interface ConvAgg { sessions: number; total_lines: number; messages: number; tool_calls: number; thinking_blocks: number; sidechain_msgs: number; subagents: number; errors: number; plan_sessions: number; inp: number; outp: number; plan_value: number }
+interface SessAgg { total_lines: number; total_minutes: number }
+interface HistAgg { paste_rate: number; rewinds: number }
+interface CountRow { n: number }
+
 const PAGES_DIR = import.meta.dir + "/../pages";
 const CORS = { "access-control-allow-origin": "*" } as const;
 const HTML_HEADERS = { "content-type": "text/html; charset=utf-8" } as const;
@@ -8,14 +14,14 @@ const HTML_HEADERS = { "content-type": "text/html; charset=utf-8" } as const;
 export async function serveCommand(args: string[]): Promise<void> {
   const port = parseInt(args.find(a => /^\d+$/.test(a)) || "3000");
   const db = getDb();
-  const q = (sql: string, ...p: any[]) => db.query(sql).all(...p);
+  const q = (sql: string, ...p: (string | number)[]) => db.query(sql).all(...p) as Row[];
 
   const dashboardBytes = await Bun.file(PAGES_DIR + "/dashboard.html").bytes();
   const chatBytes = await Bun.file(PAGES_DIR + "/chat.html").bytes();
 
   // Pre-cache heavy queries that don't change between ingests
   // Consolidated: 18 queries → 5 (one per table)
-  const statsCache = { data: null as any, ts: 0 };
+  const statsCache = { data: null as Record<string, unknown> | null, ts: 0 };
   function getStats() {
     const now = Date.now();
     if (statsCache.data && now - statsCache.ts < 5000) return statsCache.data;
@@ -39,19 +45,19 @@ export async function serveCommand(args: string[]): Promise<void> {
         WHEN model LIKE '%haiku%' THEN COALESCE(input_tokens,0)/1e6*1+COALESCE(output_tokens,0)/1e6*5
         ELSE COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15
       END),2) as plan_value
-    FROM conversation_messages`)[0] as any;
+    FROM conversation_messages`)[0] as ConvAgg;
 
     // 1 query for sessions aggregates (was 2)
     const sess = q(`SELECT
       SUM(COALESCE(lines_added,0))+SUM(COALESCE(lines_removed,0)) as total_lines,
       COALESCE(SUM(CASE WHEN duration_minutes>0 THEN duration_minutes END),0) as total_minutes
-    FROM sessions`)[0] as any;
+    FROM sessions`)[0] as SessAgg;
 
     // 1 query for history aggregates (was 2)
     const hist = q(`SELECT
       ROUND(SUM(has_paste)*100.0/COUNT(*),1) as paste_rate,
       SUM(CASE WHEN display LIKE '%/rewind%' THEN 1 ELSE 0 END) as rewinds
-    FROM history_messages`)[0] as any;
+    FROM history_messages`)[0] as HistAgg;
 
     statsCache.data = {
       sessions: { n: cm.sessions },
@@ -78,7 +84,7 @@ export async function serveCommand(args: string[]): Promise<void> {
     return statsCache.data;
   }
 
-  const streaksCache = { data: null as any, ts: 0 };
+  const streaksCache = { data: null as Record<string, unknown> | null, ts: 0 };
   function computeStreaks() {
     const now = Date.now();
     if (streaksCache.data && now - streaksCache.ts < 5000) return streaksCache.data;
@@ -173,7 +179,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         const dateTo = sp.get("to") || "";
         const lim = parseInt(sp.get("limit") || "200");
         let sql = `SELECT id,project_path,started_at,ended_at,message_count,duration_minutes,first_prompt,git_branch,cost_usd,input_tokens,output_tokens,lines_added,lines_removed,is_sidechain FROM sessions WHERE 1=1`;
-        const params: any[] = [];
+        const params: (string | number)[] = [];
         if (proj) { sql += ` AND project_path LIKE ?`; params.push(`%${proj}%`); }
         if (dateFrom) { sql += ` AND started_at >= ?`; params.push(new Date(dateFrom + "T00:00:00").getTime()); }
         if (dateTo) { sql += ` AND started_at <= ?`; params.push(new Date(dateTo + "T23:59:59").getTime()); }
@@ -202,7 +208,7 @@ export async function serveCommand(args: string[]): Promise<void> {
         const sp = new URL(req.url).searchParams;
         const limit = parseInt(sp.get("limit") || "500");
         const offset = parseInt(sp.get("offset") || "0");
-        const total = q(`SELECT COUNT(*) as n FROM conversation_messages WHERE session_id=?`, sid)[0] as any;
+        const total = q(`SELECT COUNT(*) as n FROM conversation_messages WHERE session_id=?`, sid)[0] as CountRow;
         const msgs = q(`SELECT uuid,parent_uuid,type,role,content,model,timestamp,tool_name,tool_use_id,input_tokens,output_tokens FROM conversation_messages WHERE session_id=? ORDER BY rowid LIMIT ? OFFSET ?`, sid, limit, offset);
         return Response.json({ total: total.n, msgs, offset, limit }, { headers: CORS });
       },

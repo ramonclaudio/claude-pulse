@@ -2,21 +2,23 @@ import { getDb } from "../db/connection.ts";
 import { DATA_DIR, projectName } from "../utils/paths.ts";
 import { today } from "../utils/dates.ts";
 
+interface Row { [key: string]: unknown }
+
 export async function exportHtmlCommand(args: string[]): Promise<void> {
   const db = getDb();
   const outPath = args[0] || DATA_DIR + "/dashboard.html";
+  const q = (sql: string) => db.query(sql).all() as Row[];
 
-  // Pull all data in one shot
-  const daily = db.query(`SELECT date, message_count, session_count, tool_call_count FROM daily_stats ORDER BY date`).all() as any[];
-  const projects = db.query(`SELECT project_path, COUNT(*) as n, ROUND(SUM(duration_minutes)) as mins FROM sessions WHERE project_path IS NOT NULL GROUP BY project_path ORDER BY n DESC LIMIT 15`).all() as any[];
-  const tasks = db.query(`SELECT status, COUNT(*) as n FROM tasks GROUP BY status`).all() as any[];
-  const commits = db.query(`SELECT SUBSTR(date,1,10) as d, COUNT(*) as n FROM commits GROUP BY d ORDER BY d`).all() as any[];
-  const hourly = db.query(`SELECT CAST(((started_at / 1000) % 86400) / 3600 AS INTEGER) as hour, COUNT(*) as n FROM sessions WHERE started_at > 0 GROUP BY hour ORDER BY hour`).all() as any[];
-  const topCommitTypes = db.query(`SELECT commit_type, COUNT(*) as n FROM commits WHERE commit_type IS NOT NULL AND commit_type != '' GROUP BY commit_type ORDER BY n DESC LIMIT 8`).all() as any[];
+  const daily = q(`SELECT date, message_count, session_count, tool_call_count FROM daily_stats ORDER BY date`);
+  const projects = q(`SELECT project_path, COUNT(*) as n, ROUND(SUM(duration_minutes)) as mins FROM sessions WHERE project_path IS NOT NULL GROUP BY project_path ORDER BY n DESC LIMIT 15`);
+  const tasks = q(`SELECT status, COUNT(*) as n FROM tasks GROUP BY status`);
+  const commits = q(`SELECT SUBSTR(date,1,10) as d, COUNT(*) as n FROM commits GROUP BY d ORDER BY d`);
+  const hourly = q(`SELECT CAST(((started_at / 1000) % 86400) / 3600 AS INTEGER) as hour, COUNT(*) as n FROM sessions WHERE started_at > 0 GROUP BY hour ORDER BY hour`);
+  const topCommitTypes = q(`SELECT commit_type, COUNT(*) as n FROM commits WHERE commit_type IS NOT NULL AND commit_type != '' GROUP BY commit_type ORDER BY n DESC LIMIT 8`);
 
-  const projData = projects.map((r: any) => ({ name: projectName(r.project_path), sessions: r.n, mins: r.mins || 0 }));
+  const projData = projects.map(r => ({ name: projectName(r.project_path as string), sessions: r.n as number, mins: (r.mins as number) || 0 }));
   const taskData = { pending: 0, in_progress: 0, completed: 0 };
-  for (const t of tasks) taskData[t.status as keyof typeof taskData] = t.n;
+  for (const t of tasks) taskData[(t.status as string) as keyof typeof taskData] = t.n as number;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -51,10 +53,10 @@ canvas{width:100%;height:auto}
 <div class="sub">Generated ${today()} &middot; ${daily.length} days tracked</div>
 
 <div style="margin-bottom:24px">
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM sessions").get<any>().n}</span><span class="l"> sessions</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM history_messages").get<any>().n.toLocaleString()}</span><span class="l"> messages</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM commits").get<any>().n}</span><span class="l"> commits</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM projects").get<any>().n}</span><span class="l"> projects</span></span>
+<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM sessions").get<{n:number}>()!.n}</span><span class="l"> sessions</span></span>
+<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM history_messages").get<{n:number}>()!.n.toLocaleString()}</span><span class="l"> messages</span></span>
+<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM commits").get<{n:number}>()!.n}</span><span class="l"> commits</span></span>
+<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM projects").get<{n:number}>()!.n}</span><span class="l"> projects</span></span>
 <span class="stat"><span class="n">${taskData.completed}</span><span class="l"> tasks done</span></span>
 </div>
 

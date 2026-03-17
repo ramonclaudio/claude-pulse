@@ -47,7 +47,7 @@ export async function ingestConversations(db: Database): Promise<number> {
   try { dirs = listDirs(PROJECTS_DIR); } catch { return 0; }
 
   // Phase 1: Read and parse all files async (Bun.JSONL for native SIMD parsing)
-  const fileData: { sessionId: string; agentId: string | null; records: any[] }[] = [];
+  const fileData: { sessionId: string; agentId: string | null; records: Record<string, unknown>[] }[] = [];
   for (const dir of dirs) {
     const projDir = PROJECTS_DIR + "/" + dir;
     let files: string[];
