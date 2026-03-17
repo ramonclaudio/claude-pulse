@@ -214,21 +214,38 @@ let currentMsgs=[];
 let currentSid="";
 let chatTotal=0;
 
+let sessOffset=0;
+let loadingMore=false;
+
 async function loadSessions(){
-  const[sessions,stats]=await Promise.all([F("/api/chat/sessions"),F("/api/conversation-stats")]);
+  const[sessions,stats]=await Promise.all([F("/api/chat/sessions?limit=100"),F("/api/conversation-stats")]);
   allSessions=sessions;
+  sessOffset=100;
   const u=stats.byType?.find(t=>t.type==="user")?.n||0;
   const a=stats.byType?.find(t=>t.type==="assistant")?.n||0;
-  $("cstats").textContent=stats.total.n.toLocaleString()+" messages \xb7 "+u.toLocaleString()+" user \xb7 "+a.toLocaleString()+" assistant";
-  renderSessions(sessions);
+  const total=stats.sessions?.n||0;
+  $("cstats").textContent=total.toLocaleString()+" chats \xb7 "+u.toLocaleString()+" user \xb7 "+a.toLocaleString()+" assistant";
+  renderSessions(sessions,total>100);
 }
 
-function renderSessions(sessions){
+async function loadMoreSessions(){
+  if(loadingMore)return;
+  loadingMore=true;
+  const more=await F("/api/chat/sessions?limit=100&offset="+sessOffset);
+  if(more.length){
+    allSessions=allSessions.concat(more);
+    sessOffset+=100;
+    renderSessions(allSessions,more.length>=100);
+  }
+  loadingMore=false;
+}
+
+function renderSessions(sessions,hasMore){
   $("sidebar").innerHTML=sessions.map(s=>{
     const title=esc(s.first_msg||"Untitled").slice(0,80);
     const time=relTime(s.last_ts||s.first_ts);
     return '<div class="sess-item" data-id="'+s.session_id+'" onclick="loadChat(this)"><div class="title">'+title+'</div><div class="meta">'+time+(s.msg_count?' \xb7 '+s.msg_count+' msgs':'')+'</div></div>';
-  }).join("")||'<div class="empty">no conversations</div>';
+  }).join("")+(hasMore?'<div class="load-more" onclick="loadMoreSessions()">Load more chats</div>':'')||'<div class="empty">no conversations</div>';
 }
 
 async function loadChat(el){

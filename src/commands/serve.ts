@@ -192,11 +192,14 @@ export async function serveCommand(args: string[]): Promise<void> {
         if (!query) return Response.json([], { headers: CORS });
         return Response.json(q(`SELECT hm.timestamp,hm.project_path,hm.display FROM history_fts f JOIN history_messages hm ON hm.id=f.rowid WHERE history_fts MATCH ? ORDER BY hm.timestamp DESC LIMIT 30`, query), { headers: CORS });
       },
-      "/api/chat/sessions": () => {
+      "/api/chat/sessions": (req) => {
+        const sp = new URL(req.url).searchParams;
+        const limit = parseInt(sp.get("limit") || "100");
+        const offset = parseInt(sp.get("offset") || "0");
         return Response.json(q(`SELECT s.session_id, s.first_ts, s.last_ts, s.msg_count,
           SUBSTR((SELECT content FROM conversation_messages WHERE session_id=s.session_id AND role='user' AND content IS NOT NULL ORDER BY rowid LIMIT 1), 1, 120) as first_msg
           FROM (SELECT session_id, MIN(timestamp) as first_ts, MAX(timestamp) as last_ts, COUNT(*) as msg_count
-            FROM conversation_messages WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT 100) s`), { headers: CORS });
+            FROM conversation_messages WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT ? OFFSET ?) s`, limit, offset), { headers: CORS });
       },
       "/api/chat-search": (req) => {
         const query = new URL(req.url).searchParams.get("q") || "";
