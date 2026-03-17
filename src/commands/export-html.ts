@@ -1,5 +1,5 @@
 import { getDb } from "../db/connection.ts";
-import { DATA_DIR } from "../utils/paths.ts";
+import { DATA_DIR, projectName } from "../utils/paths.ts";
 import { today } from "../utils/dates.ts";
 
 export async function exportHtmlCommand(args: string[]): Promise<void> {
@@ -14,8 +14,7 @@ export async function exportHtmlCommand(args: string[]): Promise<void> {
   const hourly = db.query(`SELECT CAST(((started_at / 1000) % 86400) / 3600 AS INTEGER) as hour, COUNT(*) as n FROM sessions WHERE started_at > 0 GROUP BY hour ORDER BY hour`).all() as any[];
   const topCommitTypes = db.query(`SELECT commit_type, COUNT(*) as n FROM commits WHERE commit_type IS NOT NULL AND commit_type != '' GROUP BY commit_type ORDER BY n DESC LIMIT 8`).all() as any[];
 
-  const name = (p: string) => p.split("/").pop() || p;
-  const projData = projects.map((r: any) => ({ name: name(r.project_path), sessions: r.n, mins: r.mins || 0 }));
+  const projData = projects.map((r: any) => ({ name: projectName(r.project_path), sessions: r.n, mins: r.mins || 0 }));
   const taskData = { pending: 0, in_progress: 0, completed: 0 };
   for (const t of tasks) taskData[t.status as keyof typeof taskData] = t.n;
 

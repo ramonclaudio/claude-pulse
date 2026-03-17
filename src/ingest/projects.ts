@@ -1,6 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { Glob } from "bun";
-import { DEVELOPER_DIR } from "../utils/paths.ts";
+import { DEVELOPER_DIR, dirExists, listDirs } from "../utils/paths.ts";
 import {
   isGitRepo,
   gitStatus,
@@ -20,9 +19,9 @@ const TYPED_PARENTS = new Map([
 
 function listProjects(): { path: string; type: string }[] {
   const projects: { path: string; type: string }[] = [];
-  if (Bun.spawnSync(["test", "-d", DEVELOPER_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return projects;
+  if (!dirExists(DEVELOPER_DIR)) return projects;
 
-  const topLevel = [...new Glob("*/").scanSync({ cwd: DEVELOPER_DIR, onlyFiles: false })].map(d => d.replace(/\/$/, ""));
+  const topLevel = listDirs(DEVELOPER_DIR);
   for (const name of topLevel) {
     if (name.startsWith(".")) continue;
     if (SKIP_DIRS.has(name)) continue;
@@ -32,7 +31,7 @@ function listProjects(): { path: string; type: string }[] {
 
     if (projectType) {
       try {
-        const children = [...new Glob("*/").scanSync({ cwd: parentPath, onlyFiles: false })].map(d => d.replace(/\/$/, ""));
+        const children = listDirs(parentPath);
         for (const child of children) {
           if (child.startsWith(".")) continue;
           projects.push({ path: parentPath + "/" + child, type: projectType });

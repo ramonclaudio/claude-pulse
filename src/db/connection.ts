@@ -1,14 +1,12 @@
 import { Database } from "bun:sqlite";
-
-const PROJECT_ROOT = import.meta.dir.split("/").slice(0, -2).join("/");
-const DATA_DIR = PROJECT_ROOT + "/data";
-const DB_PATH = DATA_DIR + "/analyzer.db";
+import { existsSync, mkdirSync } from "node:fs";
+import { DATA_DIR, DB_PATH } from "../utils/paths.ts";
 
 let _db: Database | null = null;
 
 export function getDb(): Database {
   if (_db) return _db;
-  Bun.spawnSync(["mkdir", "-p", DATA_DIR], { stdout: "ignore", stderr: "ignore" });
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
   _db = new Database(DB_PATH, { strict: true });
   _db.exec(`
     PRAGMA page_size = 8192;
@@ -28,14 +26,12 @@ export function getDb(): Database {
 
 export function closeDb(): void {
   if (_db) {
-    _db.exec("PRAGMA optimize");  // re-analyze before close
+    _db.exec("PRAGMA optimize");
     _db.close();
   }
   _db = null;
 }
 
 export function dbExists(): boolean {
-  return Bun.file(DB_PATH).size > 0;
+  return existsSync(DB_PATH);
 }
-
-export { DB_PATH, DATA_DIR };

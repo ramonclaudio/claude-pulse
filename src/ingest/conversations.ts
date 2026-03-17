@@ -1,6 +1,6 @@
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { PROJECTS_DIR } from "../utils/paths.ts";
+import { PROJECTS_DIR, listDirs } from "../utils/paths.ts";
 
 /**
  * Ingest ALL conversation JSONL lines. No skipping. No truncation.
@@ -44,7 +44,7 @@ export async function ingestConversations(db: Database): Promise<number> {
 
   let total = 0;
   let dirs: string[];
-  try { dirs = [...new Glob("*/").scanSync({ cwd: PROJECTS_DIR, onlyFiles: false })].map(d => d.replace(/\/$/, "")); } catch { return 0; }
+  try { dirs = listDirs(PROJECTS_DIR); } catch { return 0; }
 
   // Phase 1: Read and parse all files async (Bun.JSONL for native SIMD parsing)
   const fileData: { sessionId: string; agentId: string | null; records: any[] }[] = [];

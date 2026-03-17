@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { GitCommit } from "./parse.ts";
 
 function run(
@@ -17,7 +18,7 @@ function run(
 }
 
 export function isGitRepo(dir: string): boolean {
-  return Bun.spawnSync(["git", "rev-parse", "--git-dir"], { cwd: dir, stdout: "pipe", stderr: "pipe" }).exitCode === 0;
+  return existsSync(dir + "/.git");
 }
 
 export function gitStatus(dir: string): { dirty: number; files: string[] } {

@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { Glob } from "bun";
 
 export const HOME = Bun.env.HOME!;
 export const CLAUDE_HOME = HOME + "/.claude";
@@ -70,4 +71,16 @@ export function decodeProjectPath(encoded: string): string {
 /** Last component of a filesystem path. */
 export function projectName(path: string): string {
   return path.split("/").pop() || path;
+}
+
+/** List subdirectory names in a directory. Returns empty array if dir doesn't exist. */
+export function listDirs(cwd: string): string[] {
+  try {
+    return [...new Glob("*/").scanSync({ cwd, onlyFiles: false })].map(d => d.replace(/\/$/, ""));
+  } catch { return []; }
+}
+
+/** Check if a directory exists. Single syscall, no subprocess. */
+export function dirExists(path: string): boolean {
+  return existsSync(path);
 }

@@ -4,9 +4,8 @@ import { decodeProjectPath } from "../utils/paths.ts";
 import type { HistoryEntry } from "../utils/parse.ts";
 
 export async function ingestHistory(db: Database): Promise<number> {
-  if (!await Bun.file(HISTORY_FILE).exists()) return 0;
-
-  const text = await Bun.file(HISTORY_FILE).text();
+  let text: string;
+  try { text = await Bun.file(HISTORY_FILE).text(); } catch { return 0; }
   if (!text.trim()) return 0;
 
   // Native JSONL parser (SIMD-accelerated C++ parser)

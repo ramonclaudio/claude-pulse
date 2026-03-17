@@ -1,6 +1,6 @@
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { PROJECTS_DIR } from "../utils/paths.ts";
+import { PROJECTS_DIR, dirExists, listDirs } from "../utils/paths.ts";
 import type { SessionsIndexFile } from "../utils/parse.ts";
 import { safeParseJson } from "../utils/parse.ts";
 
@@ -9,7 +9,7 @@ type IndexData =
   | { type: "fallback"; dirPath: string };
 
 export async function ingestSessionsIndex(db: Database): Promise<number> {
-  if (Bun.spawnSync(["test", "-d", PROJECTS_DIR], { stdout: "ignore", stderr: "ignore" }).exitCode !== 0) return 0;
+  if (!dirExists(PROJECTS_DIR)) return 0;
 
   const insertSession = db.query(`
     INSERT OR REPLACE INTO sessions
@@ -26,7 +26,7 @@ export async function ingestSessionsIndex(db: Database): Promise<number> {
   const projectAgg: Record<string, { latest: number; sessions: number; messages: number }> = {};
 
   let dirNames: string[];
-  try { dirNames = [...new Glob("*/").scanSync({ cwd: PROJECTS_DIR, onlyFiles: false })]; } catch { return 0; }
+  dirNames = listDirs(PROJECTS_DIR);
 
   // Phase 1: Read all index files async before transaction
   const indexDataList: IndexData[] = [];

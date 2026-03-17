@@ -1,5 +1,5 @@
 import { getDb } from "../db/connection.ts";
-import { today } from "../utils/dates.ts";
+import { today, billingBlockStart } from "../utils/dates.ts";
 
 const PAGES_DIR = import.meta.dir + "/../pages";
 const CORS = { "access-control-allow-origin": "*" } as const;
@@ -78,7 +78,10 @@ export async function serveCommand(args: string[]): Promise<void> {
     return statsCache.data;
   }
 
+  const streaksCache = { data: null as any, ts: 0 };
   function computeStreaks() {
+    const now = Date.now();
+    if (streaksCache.data && now - streaksCache.ts < 5000) return streaksCache.data;
     const days = q(`SELECT date FROM daily_stats ORDER BY date`) as { date: string }[];
     if (!days.length) return { current: 0, longest: 0, longestStart: "", longestEnd: "", totalDays: 0 };
     // Convert once, compare as epoch ms. No Date objects in loop.
@@ -102,7 +105,9 @@ export async function serveCommand(args: string[]): Promise<void> {
       if (i < epochs.length - 1 && epochs[i + 1] - epochs[i] !== DAY) break;
       curStreak++;
     }
-    return { current: curStreak, longest, longestStart: days[longestStart].date, longestEnd: days[longestEnd].date, totalDays: days.length };
+    streaksCache.data = { current: curStreak, longest, longestStart: days[longestStart].date, longestEnd: days[longestEnd].date, totalDays: days.length };
+    streaksCache.ts = now;
+    return streaksCache.data;
   }
 
   Bun.serve({
@@ -135,7 +140,7 @@ export async function serveCommand(args: string[]): Promise<void> {
       "/api/project-staleness": () => Response.json(q(`SELECT name,type,path,last_commit_date,last_session_date,total_commits,total_sessions FROM projects ORDER BY COALESCE(last_commit_date,last_session_date,'1970') DESC`), { headers: CORS }),
       "/api/streaks": () => Response.json(computeStreaks(), { headers: CORS }),
       "/api/billing-blocks": () => {
-        const blocks = q(`SELECT *, CASE WHEN block_start = ? THEN 1 ELSE 0 END as is_current FROM billing_blocks ORDER BY block_start DESC LIMIT 20`, Math.floor(Date.now() / 18000000) * 18000000);
+        const blocks = q(`SELECT *, CASE WHEN block_start = ? THEN 1 ELSE 0 END as is_current FROM billing_blocks ORDER BY block_start DESC LIMIT 20`, billingBlockStart(Date.now()));
         return Response.json(blocks, { headers: CORS });
       },
       "/api/plan-mode": () => Response.json(q(`SELECT session_id,COUNT(*) as n FROM conversation_messages WHERE tool_name='EnterPlanMode' GROUP BY session_id ORDER BY n DESC`), { headers: CORS }),
@@ -182,10 +187,10 @@ export async function serveCommand(args: string[]): Promise<void> {
         return Response.json(q(`SELECT hm.timestamp,hm.project_path,hm.display FROM history_fts f JOIN history_messages hm ON hm.id=f.rowid WHERE history_fts MATCH ? ORDER BY hm.timestamp DESC LIMIT 30`, query), { headers: CORS });
       },
       "/api/chat/sessions": () => {
-        const sessions = q(`SELECT session_id,MIN(timestamp) as first_ts,MAX(timestamp) as last_ts,COUNT(*) as msg_count FROM conversation_messages WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT 100`);
-        const firstMsg = db.query(`SELECT content FROM conversation_messages WHERE session_id=? AND role='user' AND content IS NOT NULL ORDER BY rowid LIMIT 1`);
-        for (const s of sessions as any[]) s.first_msg = firstMsg.get(s.session_id)?.content?.slice(0, 120) || null;
-        return Response.json(sessions, { headers: CORS });
+        return Response.json(q(`SELECT s.session_id, s.first_ts, s.last_ts, s.msg_count,
+          SUBSTR((SELECT content FROM conversation_messages WHERE session_id=s.session_id AND role='user' AND content IS NOT NULL ORDER BY rowid LIMIT 1), 1, 120) as first_msg
+          FROM (SELECT session_id, MIN(timestamp) as first_ts, MAX(timestamp) as last_ts, COUNT(*) as msg_count
+            FROM conversation_messages WHERE type IN ('user','assistant') GROUP BY session_id ORDER BY first_ts DESC LIMIT 100) s`), { headers: CORS });
       },
       "/api/chat-search": (req) => {
         const query = new URL(req.url).searchParams.get("q") || "";
