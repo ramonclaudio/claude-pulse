@@ -110,8 +110,8 @@ body{font-family:system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;b
   <div class="chat-head">
     <span class="title" id="chatTitle">Select a conversation</span>
     <div class="controls">
-      <label><input type="checkbox" id="showThinking" checked> thinking</label>
-      <label><input type="checkbox" id="showTools" checked> tools</label>
+      <label><input type="checkbox" id="showThinking"> thinking</label>
+      <label><input type="checkbox" id="showTools"> tools</label>
       <label><input type="checkbox" id="showProgress"> progress</label>
       <button class="btn" onclick="toggleTheme()" id="themeBtn">&#9788;</button>
     </div>
@@ -333,8 +333,14 @@ function renderChat(){
   requestAnimationFrame(()=>{$("chat").scrollTop=$("chat").scrollHeight});
 }
 
+// Persist filter toggles in localStorage
 ["showThinking","showTools","showProgress"].forEach(id=>{
-  $(id).addEventListener("change",()=>{if(currentMsgs.length)renderChat()});
+  const saved=localStorage.getItem("chat_"+id);
+  if(saved!==null)$(id).checked=saved==="1";
+  $(id).addEventListener("change",()=>{
+    localStorage.setItem("chat_"+id,$(id).checked?"1":"0");
+    if(currentMsgs.length)renderChat();
+  });
 });
 
 $("csearch").addEventListener("input",async function(){
