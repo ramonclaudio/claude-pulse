@@ -4,8 +4,6 @@
  * Never group by UTC date.
  */
 
-const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
 function pad(n: number): string {
   return n < 10 ? `0${n}` : `${n}`;
 }
@@ -13,9 +11,6 @@ function pad(n: number): string {
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
-
-/** System timezone name (e.g. "America/New_York"). */
-export { tz as timezone };
 
 export function today(): string {
   return formatDate(new Date());
@@ -66,15 +61,15 @@ export function formatDuration(minutes: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+const FIVE_HOURS = 5 * 60 * 60 * 1000;
+
 /** Round epoch ms down to the start of its 5-hour billing block. */
 export function billingBlockStart(ms: number): number {
-  const FIVE_HOURS = 5 * 60 * 60 * 1000;
   return Math.floor(ms / FIVE_HOURS) * FIVE_HOURS;
 }
 
 /** End of the 5-hour billing block containing the given epoch ms. */
 export function billingBlockEnd(ms: number): number {
-  const FIVE_HOURS = 5 * 60 * 60 * 1000;
   return billingBlockStart(ms) + FIVE_HOURS;
 }
 
