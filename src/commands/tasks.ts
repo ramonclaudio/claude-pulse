@@ -1,6 +1,5 @@
 import { getDb } from "../db/connection.ts";
-import { openTasks, completedTasks } from "../db/queries.ts";
-import type { Task } from "../db/queries.ts";
+import { openTasks, completedTasks, type Task } from "../db/queries.ts";
 import { bold, dim, cyan, statusBadge, header } from "../utils/format.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

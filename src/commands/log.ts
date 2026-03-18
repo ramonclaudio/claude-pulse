@@ -1,6 +1,5 @@
 import { getDb } from "../db/connection.ts";
-import { sessionsByDateRange } from "../db/queries.ts";
-import type { Session } from "../db/queries.ts";
+import { sessionsByDateRange, type Session } from "../db/queries.ts";
 import { projectName } from "../utils/paths.ts";
 import {
   today,
@@ -9,16 +8,10 @@ import {
   epochMsToDate,
   epochMsToTime,
   formatDuration,
+  dateToMs,
+  endOfDayMs,
 } from "../utils/dates.ts";
 import { bold, dim, cyan, header, truncate } from "../utils/format.ts";
-
-function dateToMs(dateStr: string): number {
-  return new Date(dateStr + "T00:00:00").getTime();
-}
-
-function endOfDayMs(dateStr: string): number {
-  return new Date(dateStr + "T23:59:59.999").getTime();
-}
 
 function longDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");

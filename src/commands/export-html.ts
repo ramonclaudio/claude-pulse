@@ -1,32 +1,22 @@
 import { getDb } from "../db/connection.ts";
+import type { Row } from "../db/queries.ts";
 import { DATA_DIR, projectName } from "../utils/paths.ts";
-import { today } from "../utils/dates.ts";
+import { today, TZ_OFFSET_SEC } from "../utils/dates.ts";
 
-interface Row { [key: string]: unknown }
+interface DashboardData {
+  daily: Row[];
+  projects: { name: string; sessions: number; mins: number }[];
+  tasks: { pending: number; in_progress: number; completed: number };
+  commits: Row[];
+  hourly: Row[];
+  topCommitTypes: Row[];
+  sessionCount: number;
+  messageCount: number;
+  commitCount: number;
+  projectCount: number;
+}
 
-export async function exportHtmlCommand(args: string[]): Promise<void> {
-  const db = getDb();
-  const outPath = args[0] || DATA_DIR + "/dashboard.html";
-  const q = (sql: string) => db.query(sql).all() as Row[];
-
-  const daily = q(`SELECT date, message_count, session_count, tool_call_count FROM daily_stats ORDER BY date`);
-  const projects = q(`SELECT project_path, COUNT(*) as n, ROUND(SUM(duration_minutes)) as mins FROM sessions WHERE project_path IS NOT NULL GROUP BY project_path ORDER BY n DESC LIMIT 15`);
-  const tasks = q(`SELECT status, COUNT(*) as n FROM tasks GROUP BY status`);
-  const commits = q(`SELECT SUBSTR(date,1,10) as d, COUNT(*) as n FROM commits GROUP BY d ORDER BY d`);
-  const hourly = q(`SELECT CAST(((started_at / 1000) % 86400) / 3600 AS INTEGER) as hour, COUNT(*) as n FROM sessions WHERE started_at > 0 GROUP BY hour ORDER BY hour`);
-  const topCommitTypes = q(`SELECT commit_type, COUNT(*) as n FROM commits WHERE commit_type IS NOT NULL AND commit_type != '' GROUP BY commit_type ORDER BY n DESC LIMIT 8`);
-
-  const projData = projects.map(r => ({ name: projectName(r.project_path as string), sessions: r.n as number, mins: (r.mins as number) || 0 }));
-  const taskData = { pending: 0, in_progress: 0, completed: 0 };
-  for (const t of tasks) taskData[(t.status as string) as keyof typeof taskData] = t.n as number;
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Claude Code Analyzer</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
+const DASHBOARD_CSS = `*{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,system-ui,sans-serif;background:#0d1117;color:#c9d1d9;padding:24px;max-width:1200px;margin:0 auto}
 h1{font-size:20px;font-weight:600;margin-bottom:4px;color:#e6edf3}
 .sub{color:#7d8590;font-size:13px;margin-bottom:24px}
@@ -45,67 +35,9 @@ canvas{width:100%;height:auto}
 .heatmap .day{width:10px;height:10px;border-radius:2px}
 .legend{display:flex;gap:4px;align-items:center;margin-top:8px;font-size:11px;color:#7d8590}
 .legend .day{width:10px;height:10px;border-radius:2px}
-@media(max-width:700px){.grid{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<h1>Claude Code Analyzer</h1>
-<div class="sub">Generated ${today()} &middot; ${daily.length} days tracked</div>
+@media(max-width:700px){.grid{grid-template-columns:1fr}}`;
 
-<div style="margin-bottom:24px">
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM sessions").get<{n:number}>()!.n}</span><span class="l"> sessions</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM history_messages").get<{n:number}>()!.n.toLocaleString()}</span><span class="l"> messages</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM commits").get<{n:number}>()!.n}</span><span class="l"> commits</span></span>
-<span class="stat"><span class="n">${db.query("SELECT COUNT(*) as n FROM projects").get<{n:number}>()!.n}</span><span class="l"> projects</span></span>
-<span class="stat"><span class="n">${taskData.completed}</span><span class="l"> tasks done</span></span>
-</div>
-
-<div class="grid">
-<div class="card">
-<h2>Sessions per Day</h2>
-<canvas id="c1" height="160"></canvas>
-</div>
-<div class="card">
-<h2>Hour of Day</h2>
-<canvas id="c2" height="160"></canvas>
-</div>
-</div>
-
-<div class="grid">
-<div class="card">
-<h2>Projects by Sessions</h2>
-${projData.map(p => {
-  const maxS = Math.max(...projData.map(x => x.sessions));
-  const w = Math.round((p.sessions / maxS) * 200);
-  const h = Math.floor(p.mins / 60);
-  const m = Math.round(p.mins % 60);
-  return `<div class="row"><span class="name">${p.name}</span><span class="bar" style="width:${w}px"></span><span class="val">${p.sessions}</span><span class="val" style="color:#484f58">${h}h${m}m</span></div>`;
-}).join("\n")}
-</div>
-<div class="card">
-<h2>Commit Types</h2>
-<canvas id="c3" height="160"></canvas>
-<div style="margin-top:12px">
-<h2>Tasks</h2>
-<div class="row"><span class="name" style="color:#238636">completed</span><span class="bar" style="width:${Math.round(taskData.completed/Math.max(taskData.completed,taskData.pending,taskData.in_progress,1)*200)}px"></span><span class="val">${taskData.completed}</span></div>
-<div class="row"><span class="name" style="color:#d29922">in progress</span><span class="bar" style="width:${Math.round(taskData.in_progress/Math.max(taskData.completed,taskData.pending,taskData.in_progress,1)*200)}px;background:#d29922"></span><span class="val">${taskData.in_progress}</span></div>
-<div class="row"><span class="name" style="color:#484f58">pending</span><span class="bar" style="width:${Math.round(taskData.pending/Math.max(taskData.completed,taskData.pending,taskData.in_progress,1)*200)}px;background:#484f58"></span><span class="val">${taskData.pending}</span></div>
-</div>
-</div>
-</div>
-
-<div class="card" style="margin-bottom:16px">
-<h2>Activity Heatmap</h2>
-<div class="heatmap" id="heatmap"></div>
-<div class="legend"><span class="day" style="background:#161b22;border:1px solid #30363d"></span>0<span class="day" style="background:#0e4429"></span><span class="day" style="background:#006d32"></span><span class="day" style="background:#26a641"></span><span class="day" style="background:#39d353"></span>more</div>
-</div>
-
-<script>
-const daily=${JSON.stringify(daily)};
-const hourly=${JSON.stringify(hourly)};
-const commitTypes=${JSON.stringify(topCommitTypes)};
-const commits=${JSON.stringify(commits)};
-
+const DASHBOARD_SCRIPTS = `function quantize(v,max){return v===0?0:v<max*.25?1:v<max*.5?2:v<max*.75?3:4}
 function bar(canvas,data,labelKey,valueKey,color){
   const ctx=canvas.getContext("2d");
   const dpr=window.devicePixelRatio||1;
@@ -123,7 +55,6 @@ function bar(canvas,data,labelKey,valueKey,color){
     ctx.fillStyle=color;
     ctx.fillRect(x,h-pad-bh,bw,bh);
   });
-  // x labels
   ctx.fillStyle="#484f58";ctx.font="9px system-ui";
   const step=Math.max(1,Math.floor(data.length/8));
   data.forEach((d,i)=>{
@@ -138,7 +69,6 @@ function bar(canvas,data,labelKey,valueKey,color){
 bar(document.getElementById("c1"),daily,"date","session_count","#238636");
 bar(document.getElementById("c2"),hourly,"hour","n","#1f6feb");
 
-// commit types donut
 (function(){
   const canvas=document.getElementById("c3");
   const ctx=canvas.getContext("2d");
@@ -160,7 +90,6 @@ bar(document.getElementById("c2"),hourly,"hour","n","#1f6feb");
   });
   ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);
   ctx.fillStyle="#161b22";ctx.fill();
-  // legend
   ctx.font="11px system-ui";
   commitTypes.forEach((d,i)=>{
     const y=16+i*18;const x=160;
@@ -171,7 +100,6 @@ bar(document.getElementById("c2"),hourly,"hour","n","#1f6feb");
   });
 })();
 
-// heatmap
 (function(){
   const el=document.getElementById("heatmap");
   const map={};daily.forEach(d=>{map[d.date]=d.session_count});
@@ -184,17 +112,121 @@ bar(document.getElementById("c2"),hourly,"hour","n","#1f6feb");
   for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
     const key=d.toISOString().slice(0,10);
     const v=map[key]||0;
-    const q=v===0?0:v<max*.25?1:v<max*.5?2:v<max*.75?3:4;
+    const q=quantize(v,max);
     const colors=["#161b22","#0e4429","#006d32","#26a641","#39d353"];
     const div=document.createElement("div");
     div.className="day";div.style.background=colors[q];
     div.title=key+": "+v+" sessions";
     el.appendChild(div);
   }
-})();
+})();`;
+
+function renderProjectRows(projects: DashboardData["projects"]): string {
+  const maxS = Math.max(...projects.map(x => x.sessions));
+  return projects.map(p => {
+    const w = Math.round((p.sessions / maxS) * 200);
+    const h = Math.floor(p.mins / 60);
+    const m = Math.round(p.mins % 60);
+    return `<div class="row"><span class="name">${Bun.escapeHTML(p.name)}</span><span class="bar" style="width:${w}px"></span><span class="val">${p.sessions}</span><span class="val" style="color:#484f58">${h}h${m}m</span></div>`;
+  }).join("\n");
+}
+
+function renderTaskBars(tasks: DashboardData["tasks"]): string {
+  const max = Math.max(tasks.completed, tasks.pending, tasks.in_progress, 1);
+  return `<div class="row"><span class="name" style="color:#238636">completed</span><span class="bar" style="width:${Math.round(tasks.completed / max * 200)}px"></span><span class="val">${tasks.completed}</span></div>
+<div class="row"><span class="name" style="color:#d29922">in progress</span><span class="bar" style="width:${Math.round(tasks.in_progress / max * 200)}px;background:#d29922"></span><span class="val">${tasks.in_progress}</span></div>
+<div class="row"><span class="name" style="color:#484f58">pending</span><span class="bar" style="width:${Math.round(tasks.pending / max * 200)}px;background:#484f58"></span><span class="val">${tasks.pending}</span></div>`;
+}
+
+function renderDashboard(data: DashboardData): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Claude Code Analyzer</title>
+<style>
+${DASHBOARD_CSS}
+</style>
+</head>
+<body>
+<h1>Claude Code Analyzer</h1>
+<div class="sub">Generated ${today()} &middot; ${data.daily.length} days tracked</div>
+
+<div style="margin-bottom:24px">
+<span class="stat"><span class="n">${data.sessionCount}</span><span class="l"> sessions</span></span>
+<span class="stat"><span class="n">${data.messageCount.toLocaleString()}</span><span class="l"> messages</span></span>
+<span class="stat"><span class="n">${data.commitCount}</span><span class="l"> commits</span></span>
+<span class="stat"><span class="n">${data.projectCount}</span><span class="l"> projects</span></span>
+<span class="stat"><span class="n">${data.tasks.completed}</span><span class="l"> tasks done</span></span>
+</div>
+
+<div class="grid">
+<div class="card">
+<h2>Sessions per Day</h2>
+<canvas id="c1" height="160"></canvas>
+</div>
+<div class="card">
+<h2>Hour of Day</h2>
+<canvas id="c2" height="160"></canvas>
+</div>
+</div>
+
+<div class="grid">
+<div class="card">
+<h2>Projects by Sessions</h2>
+${renderProjectRows(data.projects)}
+</div>
+<div class="card">
+<h2>Commit Types</h2>
+<canvas id="c3" height="160"></canvas>
+<div style="margin-top:12px">
+<h2>Tasks</h2>
+${renderTaskBars(data.tasks)}
+</div>
+</div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
+<h2>Activity Heatmap</h2>
+<div class="heatmap" id="heatmap"></div>
+<div class="legend"><span class="day" style="background:#161b22;border:1px solid #30363d"></span>0<span class="day" style="background:#0e4429"></span><span class="day" style="background:#006d32"></span><span class="day" style="background:#26a641"></span><span class="day" style="background:#39d353"></span>more</div>
+</div>
+
+<script>
+const daily=${JSON.stringify(data.daily).replace(/</g, "\\u003c")};
+const hourly=${JSON.stringify(data.hourly).replace(/</g, "\\u003c")};
+const commitTypes=${JSON.stringify(data.topCommitTypes).replace(/</g, "\\u003c")};
+const commits=${JSON.stringify(data.commits).replace(/</g, "\\u003c")};
+
+${DASHBOARD_SCRIPTS}
 </script>
 </body>
 </html>`;
+}
+
+export async function exportHtmlCommand(args: string[]): Promise<void> {
+  const db = getDb();
+  const outPath = args[0] || DATA_DIR + "/dashboard.html";
+  const q = (sql: string, ...p: (string | number)[]) => db.query(sql).all(...p) as Row[];
+
+  const daily = q(`SELECT date, message_count, session_count, tool_call_count FROM daily_stats ORDER BY date`);
+  const rawProjects = q(`SELECT project_path, COUNT(*) as n, ROUND(SUM(duration_minutes)) as mins FROM sessions WHERE project_path IS NOT NULL GROUP BY project_path ORDER BY n DESC LIMIT 15`);
+  const rawTasks = q(`SELECT status, COUNT(*) as n FROM tasks GROUP BY status`);
+  const commits = q(`SELECT SUBSTR(date,1,10) as d, COUNT(*) as n FROM commits GROUP BY d ORDER BY d`);
+  const hourly = q(`SELECT CAST(((started_at/1000+?1)%86400)/3600 AS INTEGER) as hour, COUNT(*) as n FROM sessions WHERE started_at>0 GROUP BY hour ORDER BY hour`, TZ_OFFSET_SEC);
+  const topCommitTypes = q(`SELECT commit_type, COUNT(*) as n FROM commits WHERE commit_type IS NOT NULL AND commit_type != '' GROUP BY commit_type ORDER BY n DESC LIMIT 8`);
+
+  const projects = rawProjects.map(r => ({ name: projectName(r.project_path as string), sessions: r.n as number, mins: (r.mins as number) || 0 }));
+  const tasks = { pending: 0, in_progress: 0, completed: 0 };
+  for (const t of rawTasks) tasks[(t.status as string) as keyof typeof tasks] = t.n as number;
+
+  const html = renderDashboard({
+    daily, projects, tasks, commits, hourly, topCommitTypes,
+    sessionCount: db.query("SELECT COUNT(*) as n FROM sessions").get<{ n: number }>()!.n,
+    messageCount: db.query("SELECT COUNT(*) as n FROM history_messages").get<{ n: number }>()!.n,
+    commitCount: db.query("SELECT COUNT(*) as n FROM commits").get<{ n: number }>()!.n,
+    projectCount: db.query("SELECT COUNT(*) as n FROM projects").get<{ n: number }>()!.n,
+  });
 
   await Bun.write(outPath, html);
   console.log(`Dashboard written to ${outPath}`);

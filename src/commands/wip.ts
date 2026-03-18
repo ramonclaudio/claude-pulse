@@ -1,7 +1,7 @@
 import { Glob } from "bun";
+import type { Database } from "bun:sqlite";
 import { getDb } from "../db/connection.ts";
 import { dirtyProjects, openTasks } from "../db/queries.ts";
-import type { ProjectWithGitState } from "../db/queries.ts";
 import { projectName, CLAUDE_HOME } from "../utils/paths.ts";
 import { bold, dim, cyan, yellow, header } from "../utils/format.ts";
 import { safeParseJson } from "../utils/parse.ts";
@@ -46,6 +46,48 @@ async function activeSessions(): Promise<SessionFile[]> {
   return alive;
 }
 
+interface StashRow {
+  path: string;
+  name: string | null;
+  stash_count: number;
+}
+
+function printStashes(db: Database): boolean {
+  const stashed = db
+    .query(
+      `SELECT p.path, p.name, g.stash_count
+       FROM project_git_state g
+       JOIN projects p ON p.path = g.project_path
+       WHERE g.stash_count > 0`,
+    )
+    .all() as StashRow[];
+
+  if (stashed.length === 0) return false;
+
+  console.log(`  ${bold(`Stashes (${stashed.length})`)}`);
+  for (const s of stashed) {
+    const name = projectName(s.path);
+    console.log(
+      `  |-- ${cyan(name)}: ${s.stash_count} stash${s.stash_count === 1 ? "" : "es"}`,
+    );
+  }
+  console.log();
+  return true;
+}
+
+async function printActiveSessions(): Promise<boolean> {
+  const sessions = await activeSessions();
+  if (sessions.length === 0) return false;
+
+  console.log(`  ${bold(`Active Sessions (${sessions.length})`)}`);
+  for (const s of sessions) {
+    const name = projectName(s.cwd);
+    console.log(`  |-- ${cyan(name)} ${dim(`(pid ${s.pid})`)}`);
+  }
+  console.log();
+  return true;
+}
+
 export async function wipCommand(_args: string[]): Promise<void> {
   const db = getDb();
   let hasOutput = false;
@@ -53,7 +95,6 @@ export async function wipCommand(_args: string[]): Promise<void> {
   console.log(header("Work In Progress"));
   console.log();
 
-  // Dirty repos
   const dirty = dirtyProjects(db);
   if (dirty.length > 0) {
     console.log(`  ${bold(`Uncommitted Changes (${dirty.length} repo${dirty.length === 1 ? "" : "s"})`)}`);
@@ -68,29 +109,8 @@ export async function wipCommand(_args: string[]): Promise<void> {
     hasOutput = true;
   }
 
-  // Stashes
-  const stashed = db
-    .query(
-      `SELECT p.path, p.name, g.stash_count
-       FROM project_git_state g
-       JOIN projects p ON p.path = g.project_path
-       WHERE g.stash_count > 0`,
-    )
-    .all() as { path: string; name: string | null; stash_count: number }[];
+  if (printStashes(db)) hasOutput = true;
 
-  if (stashed.length > 0) {
-    console.log(`  ${bold(`Stashes (${stashed.length})`)}`);
-    for (const s of stashed) {
-      const name = projectName(s.path);
-      console.log(
-        `  |-- ${cyan(name)}: ${s.stash_count} stash${s.stash_count === 1 ? "" : "es"}`,
-      );
-    }
-    console.log();
-    hasOutput = true;
-  }
-
-  // Open tasks
   const tasks = openTasks(db);
   if (tasks.length > 0) {
     const pending = tasks.filter((t) => t.status === "pending").length;
@@ -100,17 +120,7 @@ export async function wipCommand(_args: string[]): Promise<void> {
     hasOutput = true;
   }
 
-  // Active sessions
-  const sessions = await activeSessions();
-  if (sessions.length > 0) {
-    console.log(`  ${bold(`Active Sessions (${sessions.length})`)}`);
-    for (const s of sessions) {
-      const name = projectName(s.cwd);
-      console.log(`  |-- ${cyan(name)} ${dim(`(pid ${s.pid})`)}`);
-    }
-    console.log();
-    hasOutput = true;
-  }
+  if (await printActiveSessions()) hasOutput = true;
 
   if (!hasOutput) {
     console.log(dim("  All clear. Nothing in flight."));
