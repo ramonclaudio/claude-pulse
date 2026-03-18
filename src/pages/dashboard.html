@@ -140,6 +140,13 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 <div class="c" data-w="plan_mode"><h2>Plan Mode Sessions</h2><div class="sc" id="p_plans"></div></div>
 <div class="c" data-w="sidechain"><h2>Sidechain / Agent Activity</h2><div id="p_sidechain"></div></div>
 <div class="c" data-w="paste_rewind"><h2>Paste & Rewind Stats</h2><div id="p_misc"></div></div>
+<div class="c" data-w="tool_durations"><h2>Tool Duration</h2><div class="sc" id="p_tooldur"></div></div>
+<div class="c" data-w="turn_latency"><h2>Turn Latency</h2><div id="p_turnlat"></div></div>
+<div class="c" data-w="cache_efficiency"><h2>Cache Efficiency</h2><div id="p_cache"></div></div>
+<div class="c" data-w="service_tiers"><h2>Service Tiers</h2><canvas id="c_tiers" height="150"></canvas></div>
+<div class="c" data-w="mcp_usage"><h2>MCP Servers</h2><div class="sc" id="p_mcp"></div></div>
+<div class="c" data-w="web_usage"><h2>Web Search</h2><div id="p_web"></div></div>
+<div class="c" data-w="model_switches"><h2>Model Switches</h2><div id="p_mswitches"></div></div>
 </div>
 
 <div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
@@ -161,9 +168,11 @@ const WIDGETS={
   "Commits":{commit_types:"Commit Types",commits_day:"Commits per Day",branches:"Branches",commit_scopes:"Commit Scopes"},
   "Sessions":{tasks:"Tasks",recent_sessions:"Recent Sessions",recent_commits:"Recent Commits",summaries:"Session Summaries"},
   "Cost & Models":{billing:"Billing Blocks",tokens_model:"Tokens by Model",thinking:"Thinking Depth"},
-  "Deep Dive":{tool_errors:"Tool Errors",subagents:"Subagents",msg_types:"Message Types",plan_mode:"Plan Mode",sidechain:"Sidechain Activity",paste_rewind:"Paste & Rewind"}
+  "Deep Dive":{tool_errors:"Tool Errors",subagents:"Subagents",msg_types:"Message Types",plan_mode:"Plan Mode",sidechain:"Sidechain Activity",paste_rewind:"Paste & Rewind"},
+  "Performance":{tool_durations:"Tool Duration",turn_latency:"Turn Latency",cache_efficiency:"Cache Efficiency",service_tiers:"Service Tiers"},
+  "Infrastructure":{mcp_usage:"MCP Servers",web_usage:"Web Search",model_switches:"Model Switches"}
 };
-const DEFAULT_HIDDEN=new Set(["tool_errors","subagents","commit_scopes","msg_types","plan_mode","sidechain","paste_rewind","thinking","tokens_project"]);
+const DEFAULT_HIDDEN=new Set(["tool_errors","subagents","commit_scopes","msg_types","plan_mode","sidechain","paste_rewind","thinking","tokens_project","tool_durations","turn_latency","cache_efficiency","service_tiers","mcp_usage","web_usage","model_switches"]);
 
 function getHidden(){
   const raw=localStorage.getItem("hidden_widgets");
@@ -204,7 +213,9 @@ function resetWidgets(){saveHidden(new Set(DEFAULT_HIDDEN));applyVisibility();op
 function showAll(){saveHidden(new Set());applyVisibility();openSettings()}
 
 const nm=p=>p?p.split("/").pop():"?";
-const e=s=>(s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;").slice(0,100);
+const e=s=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").slice(0,100);
+const quantize=(v,max)=>v===0?0:v<max*.25?1:v<max*.5?2:v<max*.75?3:4;
+function toggleMoreStats(btn){const s2=$("stats2");s2.style.display=s2.style.display==="none"?"flex":"none";btn.textContent=s2.style.display==="none"?"more":"less";localStorage.setItem("stats_more",s2.style.display==="none"?"0":"1")}
 const dur=m=>{if(!m||m<1)return"<1m";const h=Math.floor(m/60);return h?h+"h "+Math.round(m%60)+"m":Math.round(m)+"m"};
 const $=id=>document.getElementById(id);
 const cs=["#d97757","#60a5fa","#fbbf24","#f87171","#b0aea5","#87867f","#5c5b56","#3d3d3a","#4ade80","#c084fc","#f0eee6","#a1a0a0"];
@@ -239,7 +250,7 @@ async function drilldown(){
     const d=s.started_at?new Date(s.started_at):null;
     const dt=d?d.toLocaleString("en",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}):"?";
     const toks=(s.input_tokens||s.output_tokens)?" "+tok((s.input_tokens||0)+(s.output_tokens||0))+"t":"";
-    return '<div class="sn" onclick="window.open(\'/chat\',\'_blank\')"><span class="t" style="width:100px">'+dt+'</span><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.first_prompt)+'</span><span class="m">'+dur(s.duration_minutes)+toks+'</span></div>';
+    return '<div class="sn" onclick="window.open(\'/chat?s='+s.id+'\',\'_blank\')"><span class="t" style="width:100px">'+dt+'</span><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.first_prompt)+'</span><span class="m">'+dur(s.duration_minutes)+toks+'</span></div>';
   }).join("")||'<div style="color:var(--dim)">none</div>';
   $("dd").classList.add("on");
 }
@@ -285,7 +296,7 @@ function bars(el,data,nk,vk,maxW,color,fmt,clickable){
   el.innerHTML=data.slice(0,12).map(d=>{
     const w=Math.round(d[vk]/mx*maxW);
     const path=typeof d[nk]==="string"?d[nk]:"";
-    const click=clickable&&path?' data-p="'+path+'" onclick="setProj(this.dataset.p)"':'';
+    const click=clickable&&path?' data-p="'+e(path)+'" onclick="setProj(this.dataset.p)"':'';
     return '<div class="br"'+click+'><span class="nm">'+e(nm(path)||d[nk])+'</span><span class="b" style="width:'+w+'px;background:'+(color||"var(--green)")+'"></span><span class="v">'+(fmt?fmt(d):d[vk])+'</span></div>'
   }).join("");
 }
@@ -339,7 +350,7 @@ async function load(){
     [stats.commits.n.toLocaleString(),"commits"],[stats.projects.n,"projects"],
     [tm.completed||0,"done"],[tm.in_progress||0,"wip"],
     [money(stats.planValue?.n||0),"api value"],[tok(stats.totalTokens?.n||0),"tokens"]
-  ].map(sf).join("")+'<button class="more-btn" onclick="const s2=$(\'stats2\');s2.style.display=s2.style.display===\'none\'?\'flex\':\'none\';this.textContent=s2.style.display===\'none\'?\'more\':\'less\';localStorage.setItem(\'stats_more\',s2.style.display===\'none\'?\'0\':\'1\')">'+(localStorage.getItem("stats_more")==="1"?"less":"more")+'</button>';
+  ].map(sf).join("")+'<button class="more-btn" onclick="toggleMoreStats(this)">'+(localStorage.getItem("stats_more")==="1"?"less":"more")+'</button>';
   $("stats2").innerHTML=[
     [stats.messages.n.toLocaleString(),"messages"],
     [(stats.toolCalls?.n||0).toLocaleString(),"tool calls"],[(stats.thinkingBlocks?.n||0).toLocaleString(),"thinking"],
@@ -377,11 +388,11 @@ async function load(){
   if(hm){const hmap={};daily.forEach(d=>{hmap[d.date]=d.session_count});
   const dts=Object.keys(hmap).sort();
   if(dts.length){const mx=Math.max(...Object.values(hmap));const s=new Date(dts[0]+"T00:00:00"),en=new Date(dts[dts.length-1]+"T00:00:00");
-  for(let d=new Date(s);d<=en;d.setDate(d.getDate()+1)){const k=d.toISOString().slice(0,10),v=hmap[k]||0;const q=v===0?0:v<mx*.25?1:v<mx*.5?2:v<mx*.75?3:4;
+  for(let d=new Date(s);d<=en;d.setDate(d.getDate()+1)){const k=d.toISOString().slice(0,10),v=hmap[k]||0;const q=quantize(v,mx);
   const cl=["#1c1c1a","#4a2d1f","#8b4c30","#c2693f","#d97757"][q];const el=document.createElement("div");el.className="d";el.style.background=cl;el.title=k+": "+v+" sessions";el.onclick=()=>setDay(k);hm.appendChild(el)}}}
 
   // WIP
-  if($("wip"))$("wip").innerHTML=gitState.length?gitState.map(g=>'<div class="wip-row"><span class="pj">'+e(nm(g.project_path))+'</span><span class="info">'+g.dirty_file_count+' dirty'+(g.stash_count?' \xb7 '+g.stash_count+' stash':'')+(g.current_branch?' \xb7 '+g.current_branch:'')+'</span></div>').join(""):'<div style="color:var(--dim)">all clean</div>';
+  if($("wip"))$("wip").innerHTML=gitState.length?gitState.map(g=>'<div class="wip-row"><span class="pj">'+e(nm(g.project_path))+'</span><span class="info">'+g.dirty_file_count+' dirty'+(g.stash_count?' \xb7 '+g.stash_count+' stash':'')+(g.current_branch?' \xb7 '+e(g.current_branch):'')+'</span></div>').join(""):'<div style="color:var(--dim)">all clean</div>';
 
   // Billing Blocks
   const billing=await F("/api/billing-blocks");
@@ -438,7 +449,7 @@ async function load(){
     const time=d?d.toLocaleTimeString("en",{hour:"2-digit",minute:"2-digit",hour12:false}):"?";
     const toks=(s.input_tokens||s.output_tokens)?'<span style="color:var(--purple)">'+tok((s.input_tokens||0)+(s.output_tokens||0))+'t</span>':"";
     const lines=(s.lines_added||s.lines_removed)?'<span style="color:var(--green)">+'+(s.lines_added||0)+'</span><span style="color:var(--red)">-'+(s.lines_removed||0)+'</span>':"";
-    return '<div class="sn"><span class="t">'+time+'</span><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.first_prompt)+'</span><span class="m">'+dur(s.duration_minutes)+' '+toks+' '+lines+'</span></div>';
+    return '<div class="sn" onclick="window.open(\'/chat?s='+s.id+'\',\'_blank\')"><span class="t">'+time+'</span><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.first_prompt)+'</span><span class="m">'+dur(s.duration_minutes)+' '+toks+' '+lines+'</span></div>';
   }).join("");
 
   // Commits
@@ -449,9 +460,13 @@ async function load(){
   }).join("");
 
   // Additional widgets
-  const[tokenModels,toolErrors,agents,commitScopes,msgTypes,summaries]=await Promise.all([
-    F("/api/tokens-by-model"),F("/api/tool-errors"),F("/api/agents"),F("/api/commit-scopes"),F("/api/message-types"),F("/api/session-summaries")
+  const[tokenModels,toolErrors,agents,commitScopes,msgTypes,summaries,cacheStats,mcpUsage]=await Promise.all([
+    F("/api/tokens-by-model"),F("/api/tool-errors"),F("/api/agents"),F("/api/commit-scopes"),F("/api/message-types"),F("/api/session-summaries"),
+    F("/api/cache-stats"),F("/api/mcp-usage")
   ]);
+  // Heavier queries fetched in background, rendered when ready
+  const heavyP=Promise.all([F("/api/tool-durations"),F("/api/turn-latency"),F("/api/service-tiers"),F("/api/web-usage"),F("/api/model-switches")]);
+  let toolDur=null,turnLat=null,serviceTiers=null,webUsage=null,modelSwitches=null;
 
   if($("p_models")){const mmax=Math.max(...tokenModels.map(m=>(m.inp||0)+(m.outp||0)),1);
   $("p_models").innerHTML=tokenModels.map(m=>{const total=(m.inp||0)+(m.outp||0);const w=Math.round(total/mmax*160);return '<div class="br"><span class="nm">'+e(nm(m.model||"?"))+'</span><span class="b" style="width:'+w+'px;background:var(--purple)"></span><span class="v">'+tok(total)+'</span><span class="v" style="color:var(--dim)">'+m.msgs+' msgs</span></div>';}).join("");}
@@ -467,10 +482,68 @@ async function load(){
 
   donut($("c_msgtypes"),msgTypes,"raw_type");
 
-  if($("p_summaries"))$("p_summaries").innerHTML=summaries.map(s=>'<div class="sn"><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.summary)+'</span><span class="m">'+dur(s.duration_minutes)+' \xb7 '+s.message_count+' msgs</span></div>').join("")||'<div style="color:var(--dim);font-size:11px">no summaries</div>';
+  if($("p_summaries"))$("p_summaries").innerHTML=summaries.map(s=>'<div class="sn" onclick="window.open(\'/chat?s='+s.id+'\',\'_blank\')"><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.summary)+'</span><span class="m">'+dur(s.duration_minutes)+' \xb7 '+s.message_count+' msgs</span></div>').join("")||'<div style="color:var(--dim);font-size:11px">no summaries</div>';
+
+  // Cache efficiency (fast query, render immediately)
+  if($("p_cache")&&cacheStats){
+    const sf3=([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
+    $("p_cache").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
+      [(cacheStats.cache_hit_pct||0)+"%","hit rate"],
+      [tok(cacheStats.total_cache_hits||0),"cached read"],
+      [money(cacheStats.estimated_savings_usd||0),"saved"]
+    ].map(sf3).join("")+'</div>';
+  }
+
+  // MCP usage (fast query, render immediately)
+  if($("p_mcp")&&mcpUsage?.length){
+    const mmax=Math.max(...mcpUsage.map(m=>m.calls||0),1);
+    $("p_mcp").innerHTML=mcpUsage.slice(0,10).map(m=>{
+      const w=Math.round((m.calls||0)/mmax*130);
+      return '<div class="br"><span class="nm">'+e(m.mcp_server||"?")+'</span><span class="b" style="width:'+w+'px;background:#569cd6"></span><span class="v">'+m.calls+'</span></div>';
+    }).join("");
+  }
+
+  // Stats bar: cache hit % (available immediately)
+  if(cacheStats){
+    const sf6=([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
+    $("stats2").innerHTML+=sf6([(cacheStats.cache_hit_pct||0)+"%","cache hit"]);
+  }
+
+  // Render heavy widgets when ready (non-blocking)
+  heavyP.then(([td,tl,st,wu,ms])=>{
+    toolDur=td;turnLat=tl;serviceTiers=st;webUsage=wu;modelSwitches=ms;
+    if($("p_tooldur")&&toolDur?.length){
+      const tdmax=Math.max(...toolDur.map(t=>t.avg_ms||0),1);
+      $("p_tooldur").innerHTML=toolDur.slice(0,12).map(t=>{
+        const w=Math.round((t.avg_ms||0)/tdmax*130);
+        return '<div class="br"><span class="nm">'+e(t.tool_name)+'</span><span class="b" style="width:'+w+'px;background:#d97757"></span><span class="v">'+Math.round(t.avg_ms||0)+'ms</span><span class="v" style="color:var(--dim)">'+t.calls+'x</span></div>';
+      }).join("");
+    }
+    if($("p_turnlat")&&turnLat){
+      const sf2=([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
+      $("p_turnlat").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
+        [Math.round(turnLat.avg||0)+"ms","AVG"],[Math.round(turnLat.p50||0)+"ms","P50"],[Math.round(turnLat.p95||0)+"ms","P95"]
+      ].map(sf2).join("")+'</div>';
+      $("stats2").innerHTML+='<div class="stat"><div class="n">'+Math.round(turnLat.avg||0)+'ms</div><div class="l">turn latency</div></div>';
+    }
+    donut($("c_tiers"),serviceTiers?.length?serviceTiers:[],"service_tier");
+    if($("p_web")&&webUsage){
+      const sf4=([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
+      $("p_web").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
+        [(webUsage.searches||0).toLocaleString(),"total searches"],[(webUsage.fetches||0).toLocaleString(),"fetches"],[(webUsage.sessions_with_web||0),"sessions"]
+      ].map(sf4).join("")+'</div>';
+    }
+    if($("p_mswitches")&&modelSwitches){
+      const total=Array.isArray(modelSwitches)?modelSwitches.length:0;
+      const sf5=([n,l])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';
+      $("p_mswitches").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
+        [total.toLocaleString(),"sessions"]
+      ].map(sf5).join("")+'</div>';
+    }
+  });
 
   const planData=await F("/api/plan-mode");
-  if($("p_plans"))$("p_plans").innerHTML=planData.length?'<div style="color:var(--dim);font-size:10px;margin-bottom:4px">'+planData.length+' sessions used plan mode ('+planData.reduce((s,p)=>s+p.n,0)+' total)</div>'+planData.slice(0,15).map(p=>'<div class="sn"><span class="pj" style="width:70px">'+e(p.session_id.slice(0,8))+'...</span><span class="pr">'+p.n+' invocations</span></div>').join(""):'<div style="color:var(--dim);font-size:11px">no plan mode usage</div>';
+  if($("p_plans"))$("p_plans").innerHTML=planData.length?'<div style="color:var(--dim);font-size:10px;margin-bottom:4px">'+planData.length+' sessions used plan mode ('+planData.reduce((s,p)=>s+p.n,0)+' total)</div>'+planData.slice(0,15).map(p=>'<div class="sn" onclick="window.open(\'/chat?s='+p.session_id+'\',\'_blank\')"><span class="pj" style="width:70px">'+e(p.session_id.slice(0,8))+'...</span><span class="pr">'+p.n+' invocations</span></div>').join(""):'<div style="color:var(--dim);font-size:11px">no plan mode usage</div>';
 
   const scData=await F("/api/sidechain-stats");
   if($("p_sidechain"))$("p_sidechain").innerHTML='<div style="font-size:11px;margin-bottom:6px"><span style="color:var(--accent);font-weight:700">'+scData.total.n.toLocaleString()+'</span> sidechain messages from <span style="color:var(--blue);font-weight:700">'+scData.agents.n+'</span> subagents</div>'+(scData.byAgent||[]).slice(0,8).map(a=>{const amax2=Math.max(...(scData.byAgent||[]).map(x=>x.msgs),1);return '<div class="br"><span class="nm" style="width:70px">'+e(a.agent_id?.slice(0,8))+'</span><span class="b" style="width:'+Math.round(a.msgs/amax2*100)+'px;background:var(--accent)"></span><span class="v">'+a.msgs+'</span></div>';}).join("");
