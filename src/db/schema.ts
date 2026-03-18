@@ -202,6 +202,12 @@ CREATE TABLE IF NOT EXISTS app_meta (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS github_repos (
+  repo TEXT,
+  local_path TEXT,
+  PRIMARY KEY (repo, local_path)
+);
+
 CREATE TABLE IF NOT EXISTS session_facets (
   session_id TEXT PRIMARY KEY,
   outcome TEXT,

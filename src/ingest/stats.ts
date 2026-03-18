@@ -85,6 +85,14 @@ export async function ingestStats(db: Database): Promise<number> {
         if (config.firstStartTime) insertMeta.run("first_start_time", String(config.firstStartTime));
         if (config.claudeCodeFirstTokenDate) insertMeta.run("first_token_date", String(config.claudeCodeFirstTokenDate));
         if (config.installMethod) insertMeta.run("install_method", String(config.installMethod));
+        // GitHub repo paths
+        const ghPaths = config.githubRepoPaths as Record<string, string[]> | undefined;
+        if (ghPaths) {
+          const insertRepo = db.query(`INSERT OR REPLACE INTO github_repos (repo, local_path) VALUES (?, ?)`);
+          for (const [repo, paths] of Object.entries(ghPaths)) {
+            for (const p of paths) insertRepo.run(repo, p);
+          }
+        }
       });
       tx();
     }

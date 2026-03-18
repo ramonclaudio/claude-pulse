@@ -26,6 +26,7 @@ const TABLES = [
   "skill_usage",
   "app_meta",
   "session_facets",
+  "github_repos",
   "sessions",
   "projects",
 ];

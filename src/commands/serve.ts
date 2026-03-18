@@ -359,6 +359,9 @@ export function serveCommand(args: string[]): void {
       "/api/session-facets": () => {
         return Response.json(q(`SELECT sf.*, s.project_path, s.duration_minutes, s.started_at FROM session_facets sf LEFT JOIN sessions s ON s.id = sf.session_id ORDER BY s.started_at DESC`), { headers: CORS });
       },
+      "/api/github-repos": () => {
+        return Response.json(q(`SELECT gr.repo, gr.local_path, p.name as project_name, p.total_sessions, p.total_commits FROM github_repos gr LEFT JOIN projects p ON p.path = gr.local_path ORDER BY p.total_sessions DESC`), { headers: CORS });
+      },
       "/api/facet-summary": () => {
         const outcomes = q(`SELECT outcome, COUNT(*) as n FROM session_facets WHERE outcome IS NOT NULL GROUP BY outcome ORDER BY n DESC`);
         const helpfulness = q(`SELECT claude_helpfulness, COUNT(*) as n FROM session_facets WHERE claude_helpfulness IS NOT NULL GROUP BY claude_helpfulness ORDER BY n DESC`);
