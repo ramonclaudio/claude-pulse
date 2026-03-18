@@ -519,7 +519,7 @@ function renderTimeline(){
   const maxBarW=Math.min(400,Math.max(60,(wrap.clientWidth||600)-120));
   wrap.innerHTML=calls.map(c=>{
     const w=Math.max(2,Math.round(c.dur/maxDur*maxBarW));
-    const label=c.name+(c.dur>=1000?(c.dur/1000).toFixed(1)+"s":c.dur+"ms");
+    const label=c.name+" "+(c.dur>=1000?(c.dur/1000).toFixed(1)+"s":c.dur+"ms");
     return '<div class="timeline-row"><div class="timeline-bar" style="width:'+w+'px;background:'+toolColor(c.name)+'"></div><span class="timeline-label">'+esc(label)+'</span></div>';
   }).join("");
   wrap.classList.add("on");

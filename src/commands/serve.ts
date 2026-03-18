@@ -90,7 +90,7 @@ FROM conversation_messages`;
 
 const SQL_SESS_AGG = `SELECT
   SUM(COALESCE(lines_added,0))+SUM(COALESCE(lines_removed,0)) as total_lines,
-  COALESCE(SUM(CASE WHEN duration_minutes>0 THEN duration_minutes END),0) as total_minutes
+  COALESCE(SUM(CASE WHEN duration_minutes>0 THEN MIN(duration_minutes, 240) END),0) as total_minutes
 FROM sessions`;
 
 const SQL_HIST_AGG = `SELECT
