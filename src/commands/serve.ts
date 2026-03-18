@@ -281,9 +281,16 @@ export function serveCommand(args: string[]): void {
 
       "/api/cache-stats": () => {
         // cache_hit_pct = cache_read / (cache_read + non-cached input)
+        // savings = per-model cache read discount (input_price * 0.9 per cached token)
         const row = q(`SELECT SUM(cache_read_tokens) as total_cache_hits, SUM(cache_creation_tokens) as total_cache_writes, SUM(input_tokens) as total_input,
           ROUND(SUM(cache_read_tokens)*100.0/NULLIF(SUM(cache_read_tokens)+SUM(input_tokens),0),1) as cache_hit_pct,
-          ROUND(SUM(cache_read_tokens)*0.9/1e6*3,2) as estimated_savings_usd
+          ROUND(SUM(CASE
+            WHEN model LIKE '%opus-4-6%' THEN cache_read_tokens*0.9/1e6*5
+            WHEN model LIKE '%opus%' THEN cache_read_tokens*0.9/1e6*15
+            WHEN model LIKE '%sonnet%' THEN cache_read_tokens*0.9/1e6*3
+            WHEN model LIKE '%haiku%' THEN cache_read_tokens*0.9/1e6*1
+            ELSE cache_read_tokens*0.9/1e6*3
+          END),2) as estimated_savings_usd
           FROM conversation_messages WHERE input_tokens > 0 OR cache_read_tokens > 0`)[0];
         return Response.json(row, { headers: CORS });
       },
