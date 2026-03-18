@@ -13,8 +13,8 @@ interface BillingBlock {
   start: number;
   end: number;
   cost: number;
-  inputTok: number;
-  outputTok: number;
+  inputTokens: number;
+  outputTokens: number;
   count: number;
   firstStart: number;
   lastEnd: number;
@@ -29,8 +29,8 @@ function aggregateBillingBlocks(sessions: SessionRow[]): Map<number, BillingBloc
     const existing = blocks.get(bs);
     if (existing) {
       existing.cost += s.cost_usd ?? 0;
-      existing.inputTok += s.input_tokens ?? 0;
-      existing.outputTok += s.output_tokens ?? 0;
+      existing.inputTokens += s.input_tokens ?? 0;
+      existing.outputTokens += s.output_tokens ?? 0;
       existing.count++;
       if (s.started_at < existing.firstStart) existing.firstStart = s.started_at;
       if (end > existing.lastEnd) existing.lastEnd = end;
@@ -39,8 +39,8 @@ function aggregateBillingBlocks(sessions: SessionRow[]): Map<number, BillingBloc
         start: bs,
         end: billingBlockEnd(s.started_at),
         cost: s.cost_usd ?? 0,
-        inputTok: s.input_tokens ?? 0,
-        outputTok: s.output_tokens ?? 0,
+        inputTokens: s.input_tokens ?? 0,
+        outputTokens: s.output_tokens ?? 0,
         count: 1,
         firstStart: s.started_at,
         lastEnd: end,
@@ -74,12 +74,12 @@ export async function ingestBillingBlocks(db: Database): Promise<number> {
   db.transaction(() => {
     for (const b of blocks.values()) {
       const durationMin = Math.max(1, (b.lastEnd - b.firstStart) / 60_000);
-      const totalTokens = b.inputTok + b.outputTok;
+      const totalTokens = b.inputTokens + b.outputTokens;
       insert.run(
         b.start, b.end,
         b.start === currentBlock ? "active" : "completed",
         Math.round(b.cost * 100) / 100,
-        b.inputTok, b.outputTok, b.count,
+        b.inputTokens, b.outputTokens, b.count,
         Math.round(totalTokens / durationMin),
         Math.round((b.cost / durationMin) * 10000) / 10000,
       );

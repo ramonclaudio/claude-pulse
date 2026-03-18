@@ -54,7 +54,13 @@ function renderEditDiff(seg: string): string | null {
   }
 }
 
-interface ConversationAgg { sessions: number; total_lines: number; messages: number; tool_calls: number; thinking_blocks: number; sidechain_msgs: number; subagents: number; errors: number; plan_sessions: number; inp: number; outp: number; plan_value: number; cache_read_tokens: number; total_input: number; web_searches: number }
+interface ConversationAgg {
+  sessions: number; total_lines: number; messages: number;
+  tool_calls: number; thinking_blocks: number; sidechain_msgs: number;
+  subagents: number; errors: number; plan_sessions: number;
+  inp: number; outp: number; plan_value: number;
+  cache_read_tokens: number; total_input: number; web_searches: number;
+}
 interface SessionAgg { total_lines: number; total_minutes: number }
 interface HistoryAgg { paste_rate: number; rewinds: number }
 interface CountRow { n: number }
@@ -276,12 +282,12 @@ export function serveCommand(args: string[]): void {
       "/api/turn-latency": () => {
         // Use native turn_duration records from Claude Code (subtype='turn_duration', duration_ms field)
         const deltas = q(`SELECT duration_ms as latency_ms FROM conversation_messages WHERE subtype='turn_duration' AND duration_ms > 0 AND duration_ms < 600000`) as { latency_ms: number }[];
-        if (!deltas.length) return Response.json({ avg: 0, p50: 0, p95: 0, deltas: [] }, { headers: CORS });
+        if (!deltas.length) return Response.json({ avg: 0, p50: 0, p95: 0, count: 0 }, { headers: CORS });
         const vals = deltas.map(r => r.latency_ms).sort((a, b) => a - b);
         const avg = Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
         const p50 = vals[Math.floor(vals.length * 0.5)];
         const p95 = vals[Math.floor(vals.length * 0.95)];
-        return Response.json({ avg, p50, p95, deltas: vals }, { headers: CORS });
+        return Response.json({ avg, p50, p95, count: vals.length }, { headers: CORS });
       },
 
       "/api/cache-stats": () => {

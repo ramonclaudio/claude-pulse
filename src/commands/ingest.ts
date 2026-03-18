@@ -23,7 +23,7 @@ export async function ingestCommand(args: string[]): Promise<void> {
   await runIngest(force);
 }
 
-// Cloudflare Workers Cron Triggers API (called by Bun.cron)
+// Bun.cron scheduled handler
 export default {
   async scheduled() {
     await runIngest(false);

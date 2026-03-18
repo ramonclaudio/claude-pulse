@@ -18,31 +18,19 @@ export async function ingestHistory(db: Database): Promise<number> {
 
   let count = 0;
 
-  const tx = db.transaction(() => {
+  db.transaction(() => {
     for (const entry of entries) {
       try {
         if (!entry?.display) continue;
-
         const projectPath = entry.project ? decodeProjectPath(entry.project) : null;
-        const hasPaste =
-          entry.pastedContents && Object.keys(entry.pastedContents).length > 0 ? 1 : 0;
-
-        insert.run(
-          entry.sessionId || null,
-          projectPath,
-          entry.display,
-          entry.timestamp ?? null,
-          hasPaste,
-        );
-
+        const hasPaste = entry.pastedContents && Object.keys(entry.pastedContents).length > 0 ? 1 : 0;
+        insert.run(entry.sessionId || null, projectPath, entry.display, entry.timestamp ?? null, hasPaste);
         count++;
       } catch (e) {
         console.error("Failed to parse history line:", e);
       }
     }
-  });
-
-  tx();
+  })();
 
   // Rebuild FTS after data is committed
   db.exec("INSERT INTO history_fts(history_fts) VALUES('rebuild')");

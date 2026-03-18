@@ -8,7 +8,7 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
-    "build": "bun build --compile --bytecode --minify --sourcemap --define __BUILD_TIME__=$(date +%s) --define __VERSION__='\"0.1.0\"' ./src/index.ts --outfile=./dist/claude-analyzer",
+    "build": "bun build --compile --bytecode --minify --sourcemap --define __BUILD_TIME__=$(date +%s) --define __VERSION__='\"'$(node -p 'require(\"./package.json\").version')'\"' ./src/index.ts --outfile=./dist/claude-analyzer",
     "build:bundle": "bun build --bytecode --target=bun --minify --sourcemap --outdir=./dist ./src/index.ts"
   },
   "devDependencies": {

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { STATS_FILE, CLAUDE_CONFIG, FACETS_DIR } from "../utils/paths.ts";
+import { STATS_FILE, CLAUDE_CONFIG, CLAUDE_HOME, FACETS_DIR } from "../utils/paths.ts";
 import { parseJsonFile, type StatsCache } from "../utils/parse.ts";
 
 export async function ingestStats(db: Database): Promise<number> {
@@ -103,8 +103,8 @@ export async function ingestStats(db: Database): Promise<number> {
 
   // Phase 4: File-history and paste-cache stats
   try {
-    const fhDir = process.env.HOME + "/.claude/file-history/";
-    const pcDir = process.env.HOME + "/.claude/paste-cache/";
+    const fhDir = CLAUDE_HOME + "/file-history/";
+    const pcDir = CLAUDE_HOME + "/paste-cache/";
     if (existsSync(fhDir)) {
       const sessions = readdirSync(fhDir);
       let totalVersions = 0;

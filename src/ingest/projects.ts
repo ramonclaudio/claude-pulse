@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { Database } from "bun:sqlite";
 import { DEVELOPER_DIR, dirExists, listDirs } from "../utils/paths.ts";
 import { isGitRepo, gitState, gitRecentCommits } from "../utils/git.ts";
@@ -69,7 +70,7 @@ async function collectProjectData(proj: { path: string; type: string }): Promise
   const { path, type } = proj;
   const name = path.split("/").pop() || path;
   const hasGit = isGitRepo(path);
-  const hasClaudeMd = Bun.file(path + "/CLAUDE.md").size > 0;
+  const hasClaudeMd = existsSync(path + "/CLAUDE.md");
 
   let lastCommitDate: string | null = null;
   let totalCommits = 0;
