@@ -85,6 +85,15 @@ export async function ingestStats(db: Database): Promise<number> {
         if (config.firstStartTime) insertMeta.run("first_start_time", String(config.firstStartTime));
         if (config.claudeCodeFirstTokenDate) insertMeta.run("first_token_date", String(config.claudeCodeFirstTokenDate));
         if (config.installMethod) insertMeta.run("install_method", String(config.installMethod));
+        // Model pricing reference (extracted from Claude Code binary)
+        const pricing = {
+          "claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, context: 200000, display: "Opus 4.6" },
+          "claude-opus-4-5-20251101": { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75, context: 200000, display: "Opus 4.5" },
+          "claude-sonnet-4-6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75, context: 200000, display: "Sonnet 4.6" },
+          "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75, context: 200000, display: "Sonnet 4.5" },
+          "claude-haiku-4-5-20251001": { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25, context: 200000, display: "Haiku 4.5" },
+        };
+        insertMeta.run("model_pricing", JSON.stringify(pricing));
         // GitHub repo paths
         const ghPaths = config.githubRepoPaths as Record<string, string[]> | undefined;
         if (ghPaths) {

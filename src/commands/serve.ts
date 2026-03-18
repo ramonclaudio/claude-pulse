@@ -76,9 +76,11 @@ const SQL_CONV_AGG = `SELECT
   SUM(COALESCE(input_tokens,0)) as inp,
   SUM(COALESCE(output_tokens,0)) as outp,
   ROUND(SUM(CASE
-    WHEN model LIKE '%opus%' THEN COALESCE(input_tokens,0)/1e6*15+COALESCE(output_tokens,0)/1e6*75
-    WHEN model LIKE '%sonnet%' THEN COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15
-    WHEN model LIKE '%haiku%' THEN COALESCE(input_tokens,0)/1e6*1+COALESCE(output_tokens,0)/1e6*5
+    WHEN model LIKE '%opus-4-6%' THEN COALESCE(input_tokens,0)/1e6*5+COALESCE(output_tokens,0)/1e6*25+COALESCE(cache_read_tokens,0)/1e6*0.5+COALESCE(cache_creation_tokens,0)/1e6*6.25
+    WHEN model LIKE '%opus%' THEN COALESCE(input_tokens,0)/1e6*15+COALESCE(output_tokens,0)/1e6*75+COALESCE(cache_read_tokens,0)/1e6*1.5+COALESCE(cache_creation_tokens,0)/1e6*18.75
+    WHEN model LIKE '%sonnet-4-6%' THEN COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15+COALESCE(cache_read_tokens,0)/1e6*0.3+COALESCE(cache_creation_tokens,0)/1e6*3.75
+    WHEN model LIKE '%sonnet%' THEN COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15+COALESCE(cache_read_tokens,0)/1e6*0.3+COALESCE(cache_creation_tokens,0)/1e6*3.75
+    WHEN model LIKE '%haiku%' THEN COALESCE(input_tokens,0)/1e6*1+COALESCE(output_tokens,0)/1e6*5+COALESCE(cache_read_tokens,0)/1e6*0.1+COALESCE(cache_creation_tokens,0)/1e6*1.25
     ELSE COALESCE(input_tokens,0)/1e6*3+COALESCE(output_tokens,0)/1e6*15
   END),2) as plan_value,
   SUM(COALESCE(cache_read_tokens,0)) as cache_read_tokens,
