@@ -151,6 +151,10 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 <div class="c" data-w="lifetime_skills"><h2>Skill Usage (Lifetime)</h2><div class="sc" id="p_ltskills"></div></div>
 <div class="c" data-w="version_dist"><h2>Version Distribution</h2><div class="sc" id="p_versions"></div></div>
 <div class="c" data-w="perm_modes"><h2>Permission Modes</h2><div class="sc" id="p_perms"></div></div>
+<div class="c" data-w="facet_outcomes"><h2>Session Outcomes</h2><canvas id="c_outcomes" height="150"></canvas></div>
+<div class="c" data-w="facet_helpfulness"><h2>Claude Helpfulness</h2><canvas id="c_helpful" height="150"></canvas></div>
+<div class="c" data-w="facet_types"><h2>Session Types</h2><canvas id="c_stypes" height="150"></canvas></div>
+<div class="c" data-w="facet_list"><h2>Session Insights</h2><div class="sc" id="p_facets"></div></div>
 </div>
 
 <div class="settings-overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
@@ -175,7 +179,8 @@ const WIDGETS={
   "Deep Dive":{tool_errors:"Tool Errors",subagents:"Subagents",msg_types:"Message Types",plan_mode:"Plan Mode",sidechain:"Sidechain Activity",paste_rewind:"Paste & Rewind"},
   "Performance":{tool_durations:"Tool Duration",turn_latency:"Turn Latency",cache_efficiency:"Cache Efficiency",service_tiers:"Service Tiers"},
   "Infrastructure":{mcp_usage:"MCP Servers",web_usage:"Web Search",model_switches:"Model Switches"},
-  "Usage":{lifetime_tools:"Tool Usage (Lifetime)",lifetime_skills:"Skill Usage (Lifetime)",version_dist:"Version Distribution",perm_modes:"Permission Modes"}
+  "Usage":{lifetime_tools:"Tool Usage (Lifetime)",lifetime_skills:"Skill Usage (Lifetime)",version_dist:"Version Distribution",perm_modes:"Permission Modes"},
+  "Insights":{facet_outcomes:"Session Outcomes",facet_helpfulness:"Claude Helpfulness",facet_types:"Session Types",facet_list:"Session Insights"}
 };
 const DEFAULT_HIDDEN=new Set(["tool_errors","subagents","commit_scopes","msg_types","plan_mode","sidechain","paste_rewind","thinking","tokens_project","tool_durations","turn_latency","cache_efficiency","service_tiers","mcp_usage","web_usage","model_switches","version_dist","perm_modes"]);
 
@@ -584,6 +589,23 @@ async function load(){
       if(appMeta.num_startups)extra.push([appMeta.num_startups.toLocaleString(),"startups"]);
       if(appMeta.first_start_time)extra.push([new Date(appMeta.first_start_time).toLocaleDateString(),"first use"]);
       if(extra.length)$("stats2").innerHTML+=extra.map(sf).join("");
+    }
+  });
+
+  // Session Insights/Facets
+  F("/api/facet-summary").then(facets=>{
+    if(!facets||!facets.total)return;
+    donut($("c_outcomes"),facets.outcomes||[],"outcome");
+    donut($("c_helpful"),facets.helpfulness||[],"claude_helpfulness");
+    donut($("c_stypes"),facets.types||[],"session_type");
+  });
+  F("/api/session-facets").then(facets=>{
+    if($("p_facets")&&facets?.length){
+      $("p_facets").innerHTML=facets.slice(0,20).map(f=>{
+        const colors={fully_achieved:"var(--green)",mostly_achieved:"#3fb950",partially_achieved:"var(--yellow)",not_achieved:"var(--red)",unclear_from_transcript:"var(--dim)"};
+        const c=colors[f.outcome]||"var(--dim)";
+        return '<div class="sn" onclick="window.open(\'/chat?s='+f.session_id+'\',\'_blank\')"><span style="color:'+c+';font-size:10px;width:100px">'+e(f.outcome||"?")+'</span><span class="pr" style="flex:1">'+e((f.brief_summary||"").slice(0,80))+'</span><span style="color:var(--dim);font-size:10px">'+e(f.claude_helpfulness||"")+'</span></div>';
+      }).join("");
     }
   });
 

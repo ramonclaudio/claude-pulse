@@ -25,6 +25,7 @@ const TABLES = [
   "tool_usage",
   "skill_usage",
   "app_meta",
+  "session_facets",
   "sessions",
   "projects",
 ];

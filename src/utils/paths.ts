@@ -9,6 +9,7 @@ export const HISTORY_FILE = CLAUDE_HOME + "/history.jsonl";
 export const STATS_FILE = CLAUDE_HOME + "/stats-cache.json";
 export const TASKS_DIR = CLAUDE_HOME + "/tasks";
 export const DEVELOPER_DIR = HOME + "/Developer";
+export const FACETS_DIR = CLAUDE_HOME + "/usage-data/facets";
 
 /** Project root data directory (adjacent to src/) */
 export const DATA_DIR = import.meta.dir.split("/").slice(0, -2).join("/") + "/data";

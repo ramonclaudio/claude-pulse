@@ -356,6 +356,16 @@ export function serveCommand(args: string[]): void {
       "/api/permission-modes": () => {
         return Response.json(q(`SELECT permission_mode, COUNT(*) as n FROM conversation_messages WHERE permission_mode IS NOT NULL GROUP BY permission_mode ORDER BY n DESC`), { headers: CORS });
       },
+      "/api/session-facets": () => {
+        return Response.json(q(`SELECT sf.*, s.project_path, s.duration_minutes, s.started_at FROM session_facets sf LEFT JOIN sessions s ON s.id = sf.session_id ORDER BY s.started_at DESC`), { headers: CORS });
+      },
+      "/api/facet-summary": () => {
+        const outcomes = q(`SELECT outcome, COUNT(*) as n FROM session_facets WHERE outcome IS NOT NULL GROUP BY outcome ORDER BY n DESC`);
+        const helpfulness = q(`SELECT claude_helpfulness, COUNT(*) as n FROM session_facets WHERE claude_helpfulness IS NOT NULL GROUP BY claude_helpfulness ORDER BY n DESC`);
+        const types = q(`SELECT session_type, COUNT(*) as n FROM session_facets WHERE session_type IS NOT NULL GROUP BY session_type ORDER BY n DESC`);
+        const total = q(`SELECT COUNT(*) as n FROM session_facets`)[0] as { n: number };
+        return Response.json({ total: total.n, outcomes, helpfulness, types }, { headers: CORS });
+      },
       "/api/conversation-stats": () => {
         const s = getStats(q);
         return Response.json({

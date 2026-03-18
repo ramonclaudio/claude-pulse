@@ -201,6 +201,20 @@ CREATE TABLE IF NOT EXISTS app_meta (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS session_facets (
+  session_id TEXT PRIMARY KEY,
+  outcome TEXT,
+  claude_helpfulness TEXT,
+  session_type TEXT,
+  underlying_goal TEXT,
+  brief_summary TEXT,
+  primary_success TEXT,
+  friction_detail TEXT,
+  goal_categories TEXT,
+  friction_counts TEXT,
+  user_satisfaction_counts TEXT
+);
 `;
 
 export function createSchema(db: Database): void {

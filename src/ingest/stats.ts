@@ -1,5 +1,6 @@
+import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
-import { STATS_FILE, CLAUDE_CONFIG } from "../utils/paths.ts";
+import { STATS_FILE, CLAUDE_CONFIG, FACETS_DIR } from "../utils/paths.ts";
 import { parseJsonFile, type StatsCache } from "../utils/parse.ts";
 
 export async function ingestStats(db: Database): Promise<number> {
@@ -112,6 +113,36 @@ export async function ingestStats(db: Database): Promise<number> {
     });
     tx();
   }
+
+  // Phase 3: Import session facets from ~/.claude/usage-data/facets/
+  try {
+    const facetFiles = [...new Glob("*.json").scanSync(FACETS_DIR)];
+    if (facetFiles.length) {
+      const insertFacet = db.query(`INSERT OR REPLACE INTO session_facets (session_id, outcome, claude_helpfulness, session_type, underlying_goal, brief_summary, primary_success, friction_detail, goal_categories, friction_counts, user_satisfaction_counts) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+      const tx = db.transaction(() => {
+        for (const file of facetFiles) {
+          try {
+            const text = require("fs").readFileSync(FACETS_DIR + "/" + file, "utf-8");
+            const f = JSON.parse(text) as Record<string, unknown>;
+            insertFacet.run(
+              (f.session_id as string) || file.replace(".json", ""),
+              (f.outcome as string) ?? null,
+              (f.claude_helpfulness as string) ?? null,
+              (f.session_type as string) ?? null,
+              (f.underlying_goal as string) ?? null,
+              (f.brief_summary as string) ?? null,
+              (f.primary_success as string) ?? null,
+              (f.friction_detail as string) ?? null,
+              f.goal_categories ? JSON.stringify(f.goal_categories) : null,
+              f.friction_counts ? JSON.stringify(f.friction_counts) : null,
+              f.user_satisfaction_counts ? JSON.stringify(f.user_satisfaction_counts) : null,
+            );
+          } catch { continue; }
+        }
+      });
+      tx();
+    }
+  } catch { /* facets dir may not exist */ }
 
   return count;
 }
