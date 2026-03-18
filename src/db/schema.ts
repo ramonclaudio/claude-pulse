@@ -1,6 +1,6 @@
 import type { Database } from "bun:sqlite";
 
-export const SCHEMA_SQL = `
+const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
   project_path TEXT,
@@ -16,7 +16,18 @@ CREATE TABLE IF NOT EXISTS sessions (
   input_tokens INTEGER,
   output_tokens INTEGER,
   lines_added INTEGER,
-  lines_removed INTEGER
+  lines_removed INTEGER,
+  git_sha TEXT,
+  git_origin_url TEXT,
+  slug TEXT,
+  pr_number INTEGER,
+  pr_url TEXT,
+  pr_repository TEXT,
+  api_duration_ms INTEGER,
+  tool_duration_ms INTEGER,
+  total_cache_read_tokens INTEGER,
+  total_cache_creation_tokens INTEGER,
+  total_web_search_requests INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS history_messages (
@@ -110,6 +121,69 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_commits_project_path ON commits(project_path);
 CREATE INDEX IF NOT EXISTS idx_commits_date ON commits(date);
 CREATE INDEX IF NOT EXISTS idx_billing_blocks_start ON billing_blocks(block_start);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id TEXT,
+  uuid TEXT,
+  parent_uuid TEXT,
+  type TEXT,
+  role TEXT,
+  content TEXT,
+  model TEXT,
+  timestamp TEXT,
+  is_sidechain INTEGER DEFAULT 0,
+  agent_id TEXT,
+  tool_name TEXT,
+  tool_use_id TEXT,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  has_thinking INTEGER DEFAULT 0,
+  thinking_length INTEGER DEFAULT 0,
+  is_error INTEGER DEFAULT 0,
+  raw_type TEXT,
+  cache_read_tokens INTEGER,
+  cache_creation_tokens INTEGER,
+  stop_reason TEXT,
+  service_tier TEXT,
+  web_search_count INTEGER DEFAULT 0,
+  web_fetch_count INTEGER DEFAULT 0,
+  cli_version TEXT,
+  slug TEXT,
+  permission_mode TEXT,
+  duration_ms INTEGER,
+  subtype TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_conv_session ON conversation_messages(session_id);
+CREATE INDEX IF NOT EXISTS idx_conv_type ON conversation_messages(type);
+CREATE INDEX IF NOT EXISTS idx_conv_ts ON conversation_messages(timestamp);
+CREATE INDEX IF NOT EXISTS idx_conv_role ON conversation_messages(role);
+CREATE INDEX IF NOT EXISTS idx_conv_tool ON conversation_messages(tool_name);
+CREATE INDEX IF NOT EXISTS idx_conv_agent ON conversation_messages(agent_id);
+CREATE INDEX IF NOT EXISTS idx_conv_session_type ON conversation_messages(session_id, type);
+CREATE INDEX IF NOT EXISTS idx_conv_session_role ON conversation_messages(session_id, role);
+CREATE VIRTUAL TABLE IF NOT EXISTS conversation_fts USING fts5(content);
+
+CREATE TABLE IF NOT EXISTS model_usage (
+  model TEXT PRIMARY KEY,
+  input_tokens INTEGER,
+  output_tokens INTEGER,
+  cache_read_tokens INTEGER,
+  cache_creation_tokens INTEGER,
+  web_search_requests INTEGER,
+  cost_usd REAL,
+  context_window INTEGER,
+  max_output_tokens INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS daily_model_tokens (
+  date TEXT,
+  model TEXT,
+  tokens INTEGER,
+  PRIMARY KEY (date, model)
+);
+CREATE INDEX IF NOT EXISTS idx_dmt_date ON daily_model_tokens(date);
 `;
 
 export function createSchema(db: Database): void {

@@ -1,5 +1,5 @@
 import type { Database } from "bun:sqlite";
-import { getDb, closeDb } from "../db/connection.ts";
+import { getDb } from "../db/connection.ts";
 import { createSchema } from "../db/schema.ts";
 import { ingestProjects } from "./projects.ts";
 import { ingestSessionsIndex } from "./sessions-index.ts";
@@ -20,6 +20,8 @@ const TABLES = [
   "project_git_state",
   "tasks",
   "daily_stats",
+  "daily_model_tokens",
+  "model_usage",
   "sessions",
   "projects",
 ];
@@ -33,11 +35,11 @@ const steps: IngestStep[] = [
   { name: "projects", fn: ingestProjects },
   { name: "sessions-index", fn: ingestSessionsIndex },
   { name: "history", fn: ingestHistory },
-  { name: "stats", fn: ingestStats },
   { name: "tasks", fn: ingestTasks },
   { name: "root-config", fn: ingestRootConfig },
   { name: "billing-blocks", fn: ingestBillingBlocks },
   { name: "conversations", fn: ingestConversations },
+  { name: "stats", fn: ingestStats },
 ];
 
 export async function runIngest(force: boolean): Promise<void> {
@@ -67,6 +69,10 @@ export async function runIngest(force: boolean): Promise<void> {
       console.error(e);
     }
   }
+
+  // Flush WAL to main DB file and run query planner optimization
+  db.exec(`PRAGMA wal_checkpoint(TRUNCATE)`);
+  db.exec(`PRAGMA optimize`);
 
   const totalMs = Math.round(performance.now() - totalStart);
   console.log(`\nDone in ${totalMs}ms`);
