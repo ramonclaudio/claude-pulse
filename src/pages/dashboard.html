@@ -514,7 +514,7 @@ async function load(){
 
   // Stats bar: cache hit % (available immediately)
   if(cacheStats){
-    $("stats2").innerHTML+=sf6([(cacheStats.cache_hit_pct||0)+"%","cache hit"]);
+    $("stats2").innerHTML+=sf([(cacheStats.cache_hit_pct||0)+"%","cache hit"]);
   }
 
   // Render heavy widgets when ready (non-blocking)
