@@ -64,7 +64,7 @@ const CORS = { "access-control-allow-origin": "*" } as const;
 const STRIP_XML_RE = /<(thinking|tool_use|tool_result)[^>]*>[\s\S]*?<\/\1>/g;
 
 const SQL_CONV_AGG = `SELECT
-  COUNT(DISTINCT session_id) as sessions,
+  (SELECT COUNT(*) FROM sessions) as sessions,
   COUNT(*) as total_lines,
   COUNT(CASE WHEN type IN ('user','assistant') THEN 1 END) as messages,
   COUNT(CASE WHEN tool_name IS NOT NULL THEN 1 END) as tool_calls,
@@ -85,7 +85,7 @@ const SQL_CONV_AGG = `SELECT
   END),2) as plan_value,
   SUM(COALESCE(cache_read_tokens,0)) as cache_read_tokens,
   SUM(COALESCE(input_tokens,0)) as total_input,
-  SUM(COALESCE(web_search_count,0)) as web_searches
+  SUM(CASE WHEN tool_name IN ('WebSearch','WebFetch') THEN 1 ELSE 0 END) as web_searches
 FROM conversation_messages`;
 
 const SQL_SESS_AGG = `SELECT
@@ -108,14 +108,14 @@ function getStats(q: QueryFn): Record<string, unknown> {
   const sess = q(SQL_SESS_AGG)[0] as SessionAgg;
   const hist = q(SQL_HIST_AGG)[0] as HistoryAgg;
 
-  const cacheHitPct = cm.total_input > 0
-    ? Math.round(cm.cache_read_tokens * 100 / cm.total_input * 10) / 10
+  const totalPromptTokens = cm.cache_read_tokens + cm.total_input;
+  const cacheHitPct = totalPromptTokens > 0
+    ? Math.round(cm.cache_read_tokens * 1000 / totalPromptTokens) / 10
     : 0;
 
-  const latencyRows = q(`SELECT (MIN(a.timestamp) - u.timestamp) as latency_ms FROM conversation_messages u JOIN conversation_messages a ON a.session_id=u.session_id AND a.role='assistant' AND a.timestamp>u.timestamp WHERE u.role='user' AND u.type='user' AND u.content NOT LIKE '<tool_%' GROUP BY u.id HAVING latency_ms>0 AND latency_ms<600000`) as { latency_ms: number }[];
-  const avgTurnLatency = latencyRows.length
-    ? Math.round(latencyRows.reduce((s, r) => s + r.latency_ms, 0) / latencyRows.length)
-    : 0;
+  // Use native turn_duration records for avg latency
+  const turnDurations = q(`SELECT AVG(duration_ms) as avg FROM conversation_messages WHERE subtype='turn_duration' AND duration_ms > 0 AND duration_ms < 600000`) as { avg: number | null }[];
+  const avgTurnLatency = Math.round(turnDurations[0]?.avg ?? 0);
 
   statsCache.data = {
     sessions: { n: cm.sessions },
