@@ -182,7 +182,7 @@ const WIDGETS={
   "Usage":{lifetime_tools:"Tool Usage (Lifetime)",lifetime_skills:"Skill Usage (Lifetime)",version_dist:"Version Distribution",perm_modes:"Permission Modes"},
   "Insights":{facet_outcomes:"Session Outcomes",facet_helpfulness:"Claude Helpfulness",facet_types:"Session Types",facet_list:"Session Insights"}
 };
-const DEFAULT_HIDDEN=new Set(["tool_errors","subagents","commit_scopes","msg_types","plan_mode","sidechain","paste_rewind","thinking","tokens_project","tool_durations","turn_latency","cache_efficiency","service_tiers","mcp_usage","web_usage","model_switches","version_dist","perm_modes"]);
+const DEFAULT_HIDDEN=new Set(["tool_errors","subagents","commit_scopes","msg_types","plan_mode","sidechain","paste_rewind","thinking","tokens_project","version_dist","perm_modes"]);
 
 function getHidden(){
   const raw=localStorage.getItem("hidden_widgets");
@@ -268,7 +268,7 @@ async function drilldown(){
 function bar(cv,data,lk,vk,color,h){
   if(!cv||!data.length)return;
   const ctx=cv.getContext("2d"),dpr=devicePixelRatio||1;
-  const W=cv.parentElement.clientWidth-28;h=h||cv.height;
+  const W=(cv.parentElement.clientWidth||300)-28;h=h||cv.height;
   cv.width=W*dpr;cv.height=h*dpr;cv.style.height=h+"px";
   ctx.scale(dpr,dpr);
   const mx=Math.max(...data.map(d=>d[vk]),1),bw=Math.max(1,(W-20)/data.length-1),pad=16;
@@ -290,7 +290,7 @@ function bar(cv,data,lk,vk,color,h){
 function donut(cv,data,key){
   if(!cv||!data.length)return;
   const ctx=cv.getContext("2d"),dpr=devicePixelRatio||1;
-  const W=cv.parentElement.clientWidth-28,H=cv.height;
+  const W=(cv.parentElement.clientWidth||300)-28,H=cv.height;
   cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+"px";ctx.scale(dpr,dpr);
   const cx=60,cy=H/2,r=45,ir=25,tot=data.reduce((s,d)=>s+d.n,0);
   let a=-Math.PI/2;
