@@ -90,14 +90,6 @@ export interface RootConfig {
   [key: string]: unknown;
 }
 
-export interface GitCommit {
-  hash: string;
-  date: string;
-  message: string;
-  author: string;
-  commitType?: string;
-  commitScope?: string;
-}
 
 // ── Parsers ─────────────────────────────────────────────────────────
 

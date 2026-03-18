@@ -1,6 +1,14 @@
 import { existsSync } from "node:fs";
 import { $ } from "bun";
-import type { GitCommit } from "./parse.ts";
+
+export interface GitCommit {
+  hash: string;
+  date: string;
+  message: string;
+  author: string;
+  commitType?: string;
+  commitScope?: string;
+}
 
 export function isGitRepo(dir: string): boolean {
   return existsSync(dir + "/.git");
