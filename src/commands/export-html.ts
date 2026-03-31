@@ -17,7 +17,7 @@ interface DashboardData {
 }
 
 const DASHBOARD_CSS = `*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#1f1f1e;color:#c3c2b7;padding:24px;max-width:1200px;margin:0 auto}
+body{font-family:'Geist',sans-serif;background:#1f1f1e;color:#c3c2b7;padding:24px;max-width:1200px;margin:0 auto}
 h1{font-size:20px;font-weight:600;margin-bottom:4px;color:#f8f8f6}
 .sub{color:#7b7974;font-size:13px;margin-bottom:24px}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
@@ -48,14 +48,14 @@ function bar(canvas,data,labelKey,valueKey,color){
   const max=Math.max(...data.map(d=>d[valueKey]),1);
   const bw=Math.max(1,Math.floor((w-40)/data.length)-1);
   const pad=20;
-  ctx.fillStyle="#7b7974";ctx.font="10px system-ui";
+  ctx.fillStyle="#7b7974";ctx.font="10px 'Geist',sans-serif";
   data.forEach((d,i)=>{
     const x=pad+i*(bw+1);
     const bh=(d[valueKey]/max)*(h-pad-4);
     ctx.fillStyle=color;
     ctx.fillRect(x,h-pad-bh,bw,bh);
   });
-  ctx.fillStyle="#5e5d59";ctx.font="9px system-ui";
+  ctx.fillStyle="#5e5d59";ctx.font="9px 'Geist',sans-serif";
   const step=Math.max(1,Math.floor(data.length/8));
   data.forEach((d,i)=>{
     if(i%step===0){
@@ -90,7 +90,7 @@ bar(document.getElementById("c2"),hourly,"hour","n","#6a9bcc");
   });
   ctx.beginPath();ctx.arc(cx,cy,ir,0,Math.PI*2);
   ctx.fillStyle="#171716";ctx.fill();
-  ctx.font="11px system-ui";
+  ctx.font="11px 'Geist',sans-serif";
   commitTypes.forEach((d,i)=>{
     const y=16+i*18;const x=160;
     ctx.fillStyle=colors[i%colors.length];
