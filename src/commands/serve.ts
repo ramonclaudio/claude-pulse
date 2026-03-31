@@ -65,6 +65,7 @@ interface SessionAgg { total_lines: number; total_minutes: number }
 interface CountRow { n: number }
 
 const PAGES_DIR = import.meta.dir + "/../pages";
+const FONTS_DIR = import.meta.dir + "/../fonts";
 let CORS = { "access-control-allow-origin": "http://localhost:3847" };
 const STRIP_XML_RE = /<(thinking|tool_use|tool_result)[^>]*>[\s\S]*?<\/\1>/g;
 
@@ -195,6 +196,9 @@ export function serveCommand(args: string[]): void {
     routes: {
       "/": Bun.file(PAGES_DIR + "/dashboard.html"),
       "/chat": Bun.file(PAGES_DIR + "/chat.html"),
+      "/fonts/geist-regular.ttf": Bun.file(FONTS_DIR + "/Geist_400Regular.ttf"),
+      "/fonts/geist-semibold.ttf": Bun.file(FONTS_DIR + "/Geist_600SemiBold.ttf"),
+      "/fonts/geist-mono.ttf": Bun.file(FONTS_DIR + "/GeistMono_400Regular.ttf"),
 
       "/api/stats": () => Response.json(getStats(q), { headers: CORS }),
       "/api/daily": () => Response.json(q(`SELECT SUBSTR(datetime(timestamp,'localtime'),1,10) as date,COUNT(DISTINCT session_id) as session_count,COUNT(*) as message_count,SUM(CASE WHEN tool_name IS NOT NULL THEN 1 ELSE 0 END) as tool_call_count FROM conversation_messages WHERE timestamp LIKE '20%' AND type IN ('user','assistant') GROUP BY date ORDER BY date`), { headers: CORS }),
