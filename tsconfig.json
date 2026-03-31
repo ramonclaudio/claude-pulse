@@ -9,14 +9,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "declaration": true,
-    "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
     "rootDir": "./src",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
     "types": ["bun-types"]
   },
   "include": ["src/**/*.ts"],

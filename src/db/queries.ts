@@ -22,19 +22,6 @@ export interface Session {
 }
 
 
-interface Project {
-  path: string;
-  name: string | null;
-  type: string | null;
-  has_git: number;
-  has_claude_md: number;
-  last_commit_date: string | null;
-  last_session_date: string | null;
-  total_sessions: number;
-  total_messages: number;
-  total_commits: number;
-}
-
 export interface Task {
   id: string;
   suite_id: string;

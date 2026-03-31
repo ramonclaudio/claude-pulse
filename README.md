@@ -43,7 +43,7 @@ bun run build
 ./dist/claude-pulse serve
 ```
 
-Open `http://localhost:3847` in your browser.
+Open `http://localhost:3000` in your browser.
 
 Or run directly without building:
 
@@ -58,7 +58,7 @@ bun run src/index.ts serve
 |---|---|
 | `ingest` | Parse `~/.claude/` data into SQLite |
 | `ingest --force` | Drop all tables and re-ingest from scratch |
-| `serve [port]` | Start live dashboard (default: 3847) |
+| `serve [port]` | Start live dashboard (default: 3000) |
 | `export [path]` | Generate static HTML dashboard |
 | `log [--week\|DATE]` | Sessions by date |
 | `tasks` | Open tasks across projects |

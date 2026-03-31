@@ -471,31 +471,16 @@ async function load(){
   }).join("");
 
   // Additional widgets
-  const[tokenModels,toolErrors,agents,commitScopes,msgTypes,summaries,cacheStats,mcpUsage]=await Promise.all([
-    F("/api/tokens-by-model"),F("/api/tool-errors"),F("/api/agents"),F("/api/commit-scopes"),F("/api/message-types"),F("/api/session-summaries"),
-    F("/api/cache-stats"),F("/api/mcp-usage")
+  const[tokenModels,toolErrors,cacheStats,mcpUsage]=await Promise.all([
+    F("/api/tokens-by-model"),F("/api/tool-errors"),F("/api/cache-stats"),F("/api/mcp-usage")
   ]);
-  // Heavier queries fetched in background, rendered when ready
-  const heavyP=Promise.all([F("/api/tool-durations"),F("/api/turn-latency"),F("/api/service-tiers"),F("/api/web-usage"),F("/api/model-switches")]);
-  let toolDur=null,turnLat=null,serviceTiers=null,webUsage=null,modelSwitches=null;
+  const heavyP=Promise.all([F("/api/tool-durations"),F("/api/turn-latency"),F("/api/web-usage")]);
 
   if($("p_models")){const mmax=Math.max(...tokenModels.map(m=>(m.inp||0)+(m.outp||0)),1);
   $("p_models").innerHTML=tokenModels.map(m=>{const total=(m.inp||0)+(m.outp||0);const w=Math.round(total/mmax*160);return '<div class="br"><span class="nm">'+e(nm(m.model||"?"))+'</span><span class="b" style="width:'+w+'px;background:var(--purple)"></span><span class="v">'+tok(total)+'</span><span class="v" style="color:var(--dim)">'+m.msgs+' msgs</span></div>';}).join("");}
 
-  if($("p_thinking")){const tmax=Math.max(...tokenModels.filter(m=>m.avg_think_len).map(m=>m.avg_think_len),1);
-  $("p_thinking").innerHTML=tokenModels.filter(m=>m.thinking_msgs>0).map(m=>{const w=Math.round((m.avg_think_len||0)/tmax*160);return '<div class="br"><span class="nm">'+e(nm(m.model))+'</span><span class="b" style="width:'+w+'px;background:#cbcadb"></span><span class="v">avg '+tok(m.avg_think_len||0)+'c</span><span class="v" style="color:var(--dim)">'+m.thinking_msgs+' blocks</span></div>';}).join("")||'<div style="color:var(--dim);font-size:11px">no thinking data</div>';}
-
   if($("p_toolerr"))$("p_toolerr").innerHTML=toolErrors.map(t=>{const errStyle=t.errors>0?'color:var(--red)':'color:var(--dim)';return '<div class="br"><span class="nm">'+e(t.tool_name)+'</span><span class="b" style="width:'+Math.round(t.calls/Math.max(...toolErrors.map(x=>x.calls),1)*130)+'px;background:var(--blue)"></span><span class="v">'+t.calls+'</span><span class="v" style="'+errStyle+'">'+t.errors+' err</span></div>';}).join("");
 
-  if($("p_agents")){if(agents.length){const amax=Math.max(...agents.map(a=>a.msgs),1);$("p_agents").innerHTML='<div style="color:var(--dim);font-size:10px;margin-bottom:4px">'+agents.length+' subagents, '+agents.reduce((s,a)=>s+a.msgs,0).toLocaleString()+' messages</div>'+agents.slice(0,12).map(a=>{const w=Math.round(a.msgs/amax*130);return '<div class="br"><span class="nm" style="width:70px">'+e(a.agent_id?.slice(0,8))+'</span><span class="b" style="width:'+w+'px;background:var(--accent)"></span><span class="v">'+a.msgs+'</span><span class="v" style="color:var(--dim)">'+tok(a.tokens)+'t</span></div>';}).join("");}else $("p_agents").innerHTML='<div style="color:var(--dim);font-size:11px">no subagents</div>';}
-
-  if($("p_scopes")){const smax=Math.max(...commitScopes.map(s=>s.n),1);$("p_scopes").innerHTML=commitScopes.map(s=>{const w=Math.round(s.n/smax*130);const color=s.commit_type==='feat'?'var(--green)':s.commit_type==='fix'?'var(--red)':'var(--dim)';return '<div class="br"><span class="nm" style="width:130px">'+e(s.commit_type)+'('+e(s.commit_scope)+')</span><span class="b" style="width:'+w+'px;background:'+color+'"></span><span class="v">'+s.n+'</span></div>';}).join("")||'<div style="color:var(--dim);font-size:11px">no scoped commits</div>';}
-
-  donut($("c_msgtypes"),msgTypes,"raw_type");
-
-  if($("p_summaries"))$("p_summaries").innerHTML=summaries.map(s=>'<div class="sn" onclick="window.open(\'/chat?s='+s.id+'\',\'_blank\')"><span class="pj">'+e(nm(s.project_path))+'</span><span class="pr">'+e(s.summary)+'</span><span class="m">'+dur(s.duration_minutes)+' \xb7 '+s.message_count+' msgs</span></div>').join("")||'<div style="color:var(--dim);font-size:11px">no summaries</div>';
-
-  // Cache efficiency (fast query, render immediately)
   if($("p_cache")&&cacheStats){
     $("p_cache").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
       [(cacheStats.cache_hit_pct||0)+"%","hit rate"],
@@ -519,8 +504,7 @@ async function load(){
   }
 
   // Render heavy widgets when ready (non-blocking)
-  heavyP.then(([td,tl,st,wu,ms])=>{
-    toolDur=td;turnLat=tl;serviceTiers=st;webUsage=wu;modelSwitches=ms;
+  heavyP.then(([toolDur,turnLat,webUsage])=>{
     if($("p_tooldur")&&toolDur?.length){
       const tdmax=Math.max(...toolDur.map(t=>t.avg_ms||0),1);
       $("p_tooldur").innerHTML=toolDur.slice(0,12).map(t=>{
@@ -534,16 +518,9 @@ async function load(){
       ].map(sf).join("")+'</div>';
       $("stats2").innerHTML+='<div class="stat"><div class="n">'+Math.round(turnLat.avg||0)+'ms</div><div class="l">turn latency</div></div>';
     }
-    donut($("c_tiers"),serviceTiers?.length?serviceTiers:[],"service_tier");
     if($("p_web")&&webUsage){
       $("p_web").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
         [(webUsage.searches||0).toLocaleString(),"total searches"],[(webUsage.fetches||0).toLocaleString(),"fetches"],[(webUsage.sessions_with_web||0),"sessions"]
-      ].map(sf).join("")+'</div>';
-    }
-    if($("p_mswitches")&&modelSwitches){
-      const total=Array.isArray(modelSwitches)?modelSwitches.length:0;
-      $("p_mswitches").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
-        [total.toLocaleString(),"sessions"]
       ].map(sf).join("")+'</div>';
     }
   });
@@ -572,7 +549,6 @@ async function load(){
     if(!facets||!facets.total)return;
     donut($("c_outcomes"),facets.outcomes||[],"outcome");
     donut($("c_helpful"),facets.helpfulness||[],"claude_helpfulness");
-    donut($("c_stypes"),facets.types||[],"session_type");
   });
   F("/api/session-facets").then(facets=>{
     if($("p_facets")&&facets?.length){

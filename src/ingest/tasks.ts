@@ -1,10 +1,9 @@
 import { Glob } from "bun";
 import type { Database } from "bun:sqlite";
 import { existsSync, readFileSync } from "node:fs";
-import { TASKS_DIR, listDirs } from "../utils/paths.ts";
+import { CLAUDE_HOME, TASKS_DIR, listDirs } from "../utils/paths.ts";
 import { safeParseJson } from "../utils/parse.ts";
 
-const CLAUDE_HOME = Bun.env.HOME + "/.claude";
 const TEAMS_DIR = CLAUDE_HOME + "/teams";
 
 interface RawTask {

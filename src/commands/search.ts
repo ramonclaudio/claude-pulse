@@ -29,7 +29,7 @@ export function searchCommand(args: string[]): void {
     }
 
     for (const r of results) {
-      const ts = r.timestamp ? new Date(Number(r.timestamp) / 1000).toLocaleString() : "?";
+      const ts = r.timestamp ? new Date(r.timestamp).toLocaleString() : "?";
       const proj = r.project_path ? cyan(projectName(r.project_path)) : dim("unknown");
       const text = r.display ? truncate(r.display.replace(/\n/g, " "), 80) : dim("(empty)");
       console.log(`${dim(ts)}  ${proj}  ${text}`);

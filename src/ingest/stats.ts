@@ -16,8 +16,8 @@ export async function ingestStats(db: Database): Promise<number> {
     const stats = await parseJsonFile<StatsCache>(STATS_FILE);
     if (stats) {
       db.transaction(() => {
-        if (stats.longestSession) insertMeta.run("longest_session", JSON.stringify(stats.longestSession));
-        if (stats.firstSessionDate) insertMeta.run("first_session_date", String(stats.firstSessionDate));
+        if (stats.longestSession) { insertMeta.run("longest_session", JSON.stringify(stats.longestSession)); count++; }
+        if (stats.firstSessionDate) { insertMeta.run("first_session_date", String(stats.firstSessionDate)); count++; }
       })();
     }
   }
@@ -27,10 +27,10 @@ export async function ingestStats(db: Database): Promise<number> {
     const config = await parseJsonFile<Record<string, unknown>>(CLAUDE_CONFIG);
     if (config) {
       db.transaction(() => {
-        if (config.numStartups) insertMeta.run("num_startups", String(config.numStartups));
-        if (config.firstStartTime) insertMeta.run("first_start_time", String(config.firstStartTime));
-        if (config.claudeCodeFirstTokenDate) insertMeta.run("first_token_date", String(config.claudeCodeFirstTokenDate));
-        if (config.installMethod) insertMeta.run("install_method", String(config.installMethod));
+        if (config.numStartups) { insertMeta.run("num_startups", String(config.numStartups)); count++; }
+        if (config.firstStartTime) { insertMeta.run("first_start_time", String(config.firstStartTime)); count++; }
+        if (config.claudeCodeFirstTokenDate) { insertMeta.run("first_token_date", String(config.claudeCodeFirstTokenDate)); count++; }
+        if (config.installMethod) { insertMeta.run("install_method", String(config.installMethod)); count++; }
         const pricing = {
           "claude-opus-4-6": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25, context: 200000, display: "Opus 4.6" },
           "claude-opus-4-5-20251101": { input: 15, output: 75, cacheRead: 1.5, cacheWrite: 18.75, context: 200000, display: "Opus 4.5" },
@@ -38,9 +38,9 @@ export async function ingestStats(db: Database): Promise<number> {
           "claude-sonnet-4-5-20250929": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75, context: 200000, display: "Sonnet 4.5" },
           "claude-haiku-4-5-20251001": { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25, context: 200000, display: "Haiku 4.5" },
         };
-        insertMeta.run("model_pricing", JSON.stringify(pricing));
+        insertMeta.run("model_pricing", JSON.stringify(pricing)); count++;
         const ghPaths = config.githubRepoPaths as Record<string, string[]> | undefined;
-        if (ghPaths) for (const [repo, paths] of Object.entries(ghPaths)) for (const p of paths) insertRepo.run(repo, p);
+        if (ghPaths) for (const [repo, paths] of Object.entries(ghPaths)) for (const p of paths) { insertRepo.run(repo, p); count++; }
       })();
     }
   }
@@ -53,10 +53,10 @@ export async function ingestStats(db: Database): Promise<number> {
       const sessions = readdirSync(fhDir);
       let totalVersions = 0;
       for (const s of sessions) { try { totalVersions += readdirSync(fhDir + s).length; } catch {} }
-      insertMeta.run("file_history_sessions", String(sessions.length));
-      insertMeta.run("file_history_versions", String(totalVersions));
+      insertMeta.run("file_history_sessions", String(sessions.length)); count++;
+      insertMeta.run("file_history_versions", String(totalVersions)); count++;
     }
-    if (existsSync(pcDir)) insertMeta.run("paste_cache_files", String(readdirSync(pcDir).length));
+    if (existsSync(pcDir)) { insertMeta.run("paste_cache_files", String(readdirSync(pcDir).length)); count++; }
   } catch { /* optional */ }
 
   // Phase 5: Session facets
@@ -76,7 +76,7 @@ export async function ingestStats(db: Database): Promise<number> {
               f.goal_categories ? JSON.stringify(f.goal_categories) : null,
               f.friction_counts ? JSON.stringify(f.friction_counts) : null,
               f.user_satisfaction_counts ? JSON.stringify(f.user_satisfaction_counts) : null,
-            );
+            ); count++;
           } catch { continue; }
         }
       })();

@@ -1,13 +1,5 @@
 // ── Interfaces ──────────────────────────────────────────────────────
 
-export interface HistoryEntry {
-  display: string;
-  pastedContents: Record<string, unknown>;
-  timestamp: number;
-  project: string;
-  sessionId: string;
-}
-
 interface SessionsIndexEntry {
   sessionId: string;
   fullPath: string;
@@ -25,13 +17,6 @@ interface SessionsIndexEntry {
 export interface SessionsIndexFile {
   version: number;
   entries: SessionsIndexEntry[];
-}
-
-interface DailyActivity {
-  date: string;
-  messageCount: number;
-  sessionCount: number;
-  toolCallCount: number;
 }
 
 interface ModelUsage {
