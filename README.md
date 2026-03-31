@@ -1,7 +1,7 @@
 # Claude Pulse
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bun](https://img.shields.io/badge/bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
+[![Bun](https://img.shields.io/badge/bun-%23847000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
 [![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 Local analytics dashboard and chat history viewer for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Turns your conversation history into a searchable database with a live web dashboard, cost tracking, and full session replay.
@@ -42,7 +42,7 @@ bun run build
 ./dist/claude-pulse serve
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3847](http://localhost:3847).
 
 > [!TIP]
 > Skip the build and run directly with `bun run src/index.ts serve`. First run auto-ingests if no database exists.
@@ -57,7 +57,7 @@ Open [http://localhost:3000](http://localhost:3000).
 ### Dashboard and Chat
 
 ```bash
-claude-pulse serve [port]     # Live dashboard + chat viewer (default: 3000)
+claude-pulse serve [port]     # Live dashboard + chat viewer (default: 3847)
 claude-pulse export [path]    # Static HTML snapshot of the dashboard
 ```
 
@@ -125,7 +125,7 @@ Sessions, commits, projects, tasks (done/wip/pending), API value, total tokens, 
 - Inline Edit diffs with syntax highlighting
 - Tool call timeline visualization
 - Toggle controls for thinking, tools, progress, timeline
-- Deep linking: `http://localhost:3000/chat?s=SESSION_ID`
+- Deep linking: `http://localhost:3847/chat?s=SESSION_ID`
 
 ## Configuration
 
@@ -166,7 +166,7 @@ graph LR
     G["~/.claude.json"] --> I
     H["~/Developer/**/.git"] --> I
     I --> DB[("SQLite analyzer.db")]
-    DB --> S["Browser :3000"]
+    DB --> S["Browser :3847"]
 ```
 
 ### Ground Truth

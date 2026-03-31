@@ -183,7 +183,7 @@ function computeStreaks(q: QueryFn): Record<string, unknown> {
 }
 
 export function serveCommand(args: string[]): void {
-  const port = parseInt(args.find(a => /^\d+$/.test(a)) || "3000");
+  const port = parseInt(args.find(a => /^\d+$/.test(a)) || "3847");
   CORS = { "access-control-allow-origin": `http://localhost:${port}` };
   const db = getDb();
   const q: QueryFn = (sql, ...p) => db.query(sql).all(...p) as Row[];
