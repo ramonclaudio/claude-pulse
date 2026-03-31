@@ -348,12 +348,10 @@ function donut(cv,data,key){
 
 function bars(el,data,nk,vk,maxW,color,fmt,clickable){
   if(!el)return;
-  const mx=Math.max(...data.map(d=>d[vk]),1);
   el.innerHTML=data.slice(0,12).map(d=>{
-    const w=Math.round(d[vk]/mx*maxW);
     const path=typeof d[nk]==="string"?d[nk]:"";
     const click=clickable&&path?' data-p="'+e(path)+'" onclick="setProj(this.dataset.p)"':'';
-    return '<div class="br"'+click+'><span class="nm">'+e(nm(path)||d[nk])+'</span><span class="b" style="width:'+w+'px;background:'+(color||"var(--green)")+'"></span><span class="v">'+(fmt?fmt(d):d[vk])+'</span></div>'
+    return '<div class="proj-row"'+click+'><span class="nm" style="width:auto;flex:1;min-width:0">'+e(nm(path)||d[nk])+'</span><span class="v" style="min-width:70px">'+(fmt?fmt(d):d[vk])+'</span></div>'
   }).join("");
 }
 
@@ -415,7 +413,7 @@ async function load(){
     const bmax=Math.max(...branches.map(b=>b.n),1);
     $("p_branches").innerHTML=branches.map(b=>{
       const w=Math.round(b.n/bmax*120);
-      return '<div class="br"><span class="nm">'+e(b.git_branch)+'</span><span class="b" style="width:'+w+'px;background:var(--blue)"></span><span class="v">'+b.n+'</span></div>';
+      return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(b.git_branch)+'</span><span class="v" style="min-width:40px">'+b.n+'</span></div>';
     }).join("");
   }
 
@@ -456,7 +454,7 @@ async function load(){
         const d=new Date(b.block_start);
         const label=d.toLocaleDateString("en",{month:"short",day:"numeric"})+' '+d.toLocaleTimeString("en",{hour:"2-digit",minute:"2-digit",hour12:false});
         const w=Math.round((b.total_cost||0)/bmax2*120);
-        return '<div class="br"><span class="nm">'+label+'</span><span class="b" style="width:'+w+'px;background:var(--accent)"></span><span class="v">'+money(b.total_cost)+'</span><span class="v" style="color:var(--dim)">'+b.session_count+'s</span></div>';
+        return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+label+'</span><span class="v" style="min-width:60px">'+money(b.total_cost)+'</span><span class="v" style="color:var(--dim);min-width:20px">'+b.session_count+'s</span></div>';
       }).join("");
     }
     $("p_billing").innerHTML=bhtml;
@@ -502,9 +500,9 @@ async function load(){
   const heavyP=Promise.all([F("/api/tool-durations"),F("/api/turn-latency"),F("/api/web-usage")]);
 
   if($("p_models")){const mmax=Math.max(...tokenModels.map(m=>(m.inp||0)+(m.outp||0)),1);
-  $("p_models").innerHTML=tokenModels.map(m=>{const total=(m.inp||0)+(m.outp||0);const w=Math.round(total/mmax*160);return '<div class="br"><span class="nm">'+e(nm(m.model||"?"))+'</span><span class="b" style="width:'+w+'px;background:var(--purple)"></span><span class="v">'+tok(total)+'</span><span class="v" style="color:var(--dim)">'+m.msgs+' msgs</span></div>';}).join("");}
+  $("p_models").innerHTML=tokenModels.map(m=>{const total=(m.inp||0)+(m.outp||0);return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(nm(m.model||"?"))+'</span><span class="v" style="min-width:50px">'+tok(total)+'</span><span class="v" style="color:var(--dim);min-width:70px">'+m.msgs+' msgs</span></div>';}).join("");}
 
-  if($("p_toolerr"))$("p_toolerr").innerHTML=toolErrors.map(t=>{const errStyle=t.errors>0?'color:var(--red)':'color:var(--dim)';return '<div class="br"><span class="nm">'+e(t.tool_name)+'</span><span class="b" style="width:'+Math.round(t.calls/Math.max(...toolErrors.map(x=>x.calls),1)*130)+'px;background:var(--blue)"></span><span class="v">'+t.calls+'</span><span class="v" style="'+errStyle+'">'+t.errors+' err</span></div>';}).join("");
+  if($("p_toolerr"))$("p_toolerr").innerHTML=toolErrors.map(t=>{const errStyle=t.errors>0?'color:var(--red)':'color:var(--dim)';return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(t.tool_name)+'</span><span class="v" style="min-width:40px">'+t.calls+'</span><span class="v" style="'+errStyle+';min-width:50px">'+t.errors+' err</span></div>';}).join("");
 
   if($("p_cache")&&cacheStats){
     $("p_cache").innerHTML='<div class="stats" style="margin:0;gap:12px">'+
@@ -519,7 +517,7 @@ async function load(){
     const mmax=Math.max(...mcpUsage.map(m=>m.calls||0),1);
     $("p_mcp").innerHTML=mcpUsage.slice(0,10).map(m=>{
       const w=Math.round((m.calls||0)/mmax*130);
-      return '<div class="br"><span class="nm">'+e(m.mcp_server||"?")+'</span><span class="b" style="width:'+w+'px;background:#6a9bcc"></span><span class="v">'+m.calls+'</span></div>';
+      return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(m.mcp_server||"?")+'</span><span class="v" style="min-width:40px">'+m.calls+'</span></div>';
     }).join("");
   }
 
@@ -533,7 +531,7 @@ async function load(){
       const tdmax=Math.max(...toolDur.map(t=>t.avg_ms||0),1);
       $("p_tooldur").innerHTML=toolDur.slice(0,12).map(t=>{
         const w=Math.round((t.avg_ms||0)/tdmax*130);
-        return '<div class="br"><span class="nm">'+e(t.tool_name)+'</span><span class="b" style="width:'+w+'px;background:#d97757"></span><span class="v">'+Math.round(t.avg_ms||0)+'ms</span><span class="v" style="color:var(--dim)">'+t.calls+'x</span></div>';
+        return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(t.tool_name)+'</span><span class="v" style="min-width:60px">'+Math.round(t.avg_ms||0)+'ms</span><span class="v" style="color:var(--dim);min-width:40px">'+t.calls+'x</span></div>';
       }).join("");
     }
     if($("p_turnlat")&&turnLat){
@@ -557,7 +555,7 @@ async function load(){
       $("p_ltskills").innerHTML=skillErrors.map(s=>{
         const w=Math.round((s.calls||0)/smax*130);
         const errStyle=s.errors>0?'color:var(--red)':'color:var(--dim)';
-        return '<div class="br"><span class="nm">'+e(s.skill_name)+'</span><span class="b" style="width:'+w+'px;background:#c46686"></span><span class="v">'+s.calls+'</span><span class="v" style="'+errStyle+'">'+s.errors+' err</span></div>';
+        return '<div class="proj-row"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(s.skill_name)+'</span><span class="v" style="min-width:40px">'+s.calls+'</span><span class="v" style="'+errStyle+';min-width:50px">'+s.errors+' err</span></div>';
       }).join("");
     }
     // Add app meta to stats bar
