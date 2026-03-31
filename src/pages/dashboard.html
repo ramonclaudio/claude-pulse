@@ -3,15 +3,22 @@
 <title>Claude Pulse</title>
 <style>
 :root,html[data-theme="dark"]{--bg:#1f1f1e;--card:#171716;--border:#373635;--text:#f8f8f6;--dim:#7b7974;--faint:#5e5d59;--green:#788c5d;--blue:#6a9bcc;--yellow:#d4a27f;--red:#c46686;--accent:#d97757;--purple:#cbcadb;--cream:#faf9f5;--charcoal:#3d3d3a}
-html[data-theme="light"]{--bg:#faf9f5;--card:#ffffff;--border:#e8e6dc;--text:#141413;--dim:#87867f;--faint:#b0aea5;--green:#788c5d;--blue:#6a9bcc;--yellow:#d4a27f;--red:#c46686;--accent:#c6613f;--purple:#cbcadb;--cream:#141413;--charcoal:#f0eee6}
+html[data-theme="light"]{--bg:#f8f7f3;--card:#fdfcf9;--border:#e8e6dc;--text:#141413;--dim:#87867f;--faint:#b0aea5;--green:#788c5d;--blue:#6a9bcc;--yellow:#d4a27f;--red:#c46686;--accent:#c6613f;--purple:#cbcadb;--cream:#141413;--charcoal:#f0eee6}
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);padding:16px 20px;max-width:1440px;margin:0 auto;font-size:13px}
-h1{font-size:18px;font-weight:600;color:var(--cream);display:inline}
-code,.mono{font-family:"Fira Code","SF Mono",SFMono-Regular,Menlo,Monaco,Consolas,monospace}
-.sub{color:var(--dim);font-size:12px;margin:2px 0 10px}
-.stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
-.stat .n{font-size:22px;font-weight:600;color:var(--cream);font-family:"Fira Code","SF Mono",SFMono-Regular,Menlo,monospace;line-height:1.1}
+h1{font-size:22px;font-weight:700;color:var(--cream)}
+.hero{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.hero-stat{font-family:"Fira Code","SF Mono",SFMono-Regular,Menlo,monospace;font-size:22px;font-weight:700;line-height:1}
+.hero-label{font-size:10px;color:var(--dim);margin-left:2px}
+code,.mono{font-family:"Fira Code","SF Mono",SFMono-Regular,Menlo,monospace}
+.sub{color:var(--dim);font-size:11px;margin:0 0 6px;line-height:1.6}
+.stats{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.stat .n{font-size:20px;font-weight:600;color:var(--cream);font-family:"Fira Code","SF Mono",SFMono-Regular,Menlo,monospace;line-height:1.1}
 .stat .l{font-size:9px;color:var(--faint);text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
+.filter-toggle{background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--dim);transition:all .12s ease}
+.filter-toggle:hover{color:var(--cream);border-color:var(--faint)}
+.filter-bar{display:none;margin-bottom:8px}
+.filter-bar.on{display:flex}
 .section{font-size:11px;font-weight:500;color:var(--faint);letter-spacing:.3px;margin:24px 0 10px;padding-left:2px;display:flex;align-items:center;gap:12px}
 .section::after{content:'';flex:1;height:1px;background:var(--border);opacity:.5}
 .section:first-child{margin-top:4px}
@@ -104,19 +111,32 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 .settings-panel .actions button:hover{background:var(--accent);color:#fff}
 @media(max-width:900px){.row,.row.two{grid-template-columns:1fr}.c.span2,.c.span3{grid-column:span 1}}
 </style></head><body>
-<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:2px"><h1 id="greeting">Claude Pulse</h1><a href="/chat" style="color:var(--blue);font-size:12px;text-decoration:none">Chat History &rarr;</a><div style="margin-left:auto;display:flex;gap:4px"><button onclick="toggleTheme()" style="background:var(--charcoal);border:0;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:11px;color:var(--dim)" id="themeBtn">&#9788;</button><button onclick="openSettings()" style="background:var(--charcoal);border:0;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:11px;color:var(--dim)" title="Customize widgets">&#9881;</button></div></div>
+<div class="hero">
+  <h1 id="greeting">Claude Pulse</h1>
+  <span class="hero-stat" id="heroSessions" style="color:var(--accent)"></span><span class="hero-label">sessions</span>
+  <span class="hero-stat" id="heroCommits" style="color:var(--green)"></span><span class="hero-label">commits</span>
+  <span class="hero-stat" id="heroCost" style="color:var(--accent)"></span><span class="hero-label">API value</span>
+  <div style="margin-left:auto;display:flex;gap:4px;align-items:center">
+    <a href="/chat" style="color:var(--blue);font-size:11px;text-decoration:none;margin-right:8px">Chat History &rarr;</a>
+    <button class="filter-toggle" onclick="$('filterBar').classList.toggle('on')">&#9906; Filter</button>
+    <button onclick="toggleTheme()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--dim)" id="themeBtn">&#9788;</button>
+    <button onclick="openSettings()" style="background:transparent;border:1px solid var(--border);border-radius:8px;padding:4px 8px;cursor:pointer;font-size:11px;color:var(--dim)" title="Customize widgets">&#9881;</button>
+  </div>
+</div>
 <div class="sub" id="sub">loading...</div>
 <div data-w="stats_bar"><div class="stats" id="stats"></div>
 <div class="stats" id="stats2" style="display:none"></div></div>
 
-<div class="filter" data-w="search_bar">
-  <input id="sq" placeholder="Search..." onkeydown="if(event.key==='Enter')doSearch()" />
-  <input type="date" id="fFrom" onchange="setDateRange()" />
-  <input type="date" id="fTo" onchange="setDateRange()" />
-  <span class="chip" id="projChip"><span id="projName"></span> <span onclick="clearProj()" style="cursor:pointer">&times;</span></span>
-  <span class="chip" id="dateChip"><span id="dateName"></span> <span onclick="clearDate()" style="cursor:pointer">&times;</span></span>
-  <button onclick="clearAll()">Clear</button>
-  <button onclick="load()">Refresh</button>
+<div class="filter-bar" id="filterBar" data-w="search_bar">
+  <div class="filter">
+    <input id="sq" placeholder="Search conversations..." onkeydown="if(event.key==='Enter')doSearch()" style="width:200px" />
+    <input type="date" id="fFrom" onchange="setDateRange()" />
+    <input type="date" id="fTo" onchange="setDateRange()" />
+    <span class="chip" id="projChip"><span id="projName"></span> <span onclick="clearProj()" style="cursor:pointer">&times;</span></span>
+    <span class="chip" id="dateChip"><span id="dateName"></span> <span onclick="clearDate()" style="cursor:pointer">&times;</span></span>
+    <button onclick="clearAll()">Clear</button>
+    <button onclick="load()">Refresh</button>
+  </div>
 </div>
 <div class="c" id="sr" style="display:none;margin-bottom:10px"><h2>Search Results</h2><div class="sc" id="sres"></div></div>
 <div class="dd" id="dd"><h2 id="ddTitle"></h2><div id="ddSub" style="font-size:11px;color:var(--dim);margin-bottom:6px"></div><div class="sc" id="ddList"></div></div>
@@ -130,9 +150,13 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 </div>
 <div class="section">Status</div>
 <div class="row">
-  <div class="c" data-w="tasks"><h2>Tasks</h2><div class="tabs"><span class="tab on" data-f="w">In Progress</span><span class="tab" data-f="p">Pending</span><span class="tab" data-f="d">Done</span></div><div class="sc" id="tasks"></div></div>
-  <div class="c" data-w="heatmap"><h2>Activity Heatmap</h2><div class="hm" id="heatmap"></div><div class="lg"><span class="d" style="background:#161b22;border:1px solid #30363d"></span>0<span class="d" style="background:#0e4429"></span><span class="d" style="background:#006d32"></span><span class="d" style="background:#26a641"></span><span class="d" style="background:#39d353"></span>more</div></div>
+  <div class="c span2" data-w="heatmap"><h2>Activity Heatmap</h2><div class="hm" id="heatmap"></div><div class="lg"><span class="d" style="background:#161b22;border:1px solid #30363d"></span>0<span class="d" style="background:#0e4429"></span><span class="d" style="background:#006d32"></span><span class="d" style="background:#26a641"></span><span class="d" style="background:#39d353"></span>more</div></div>
   <div class="c" data-w="cache_efficiency"><h2>Cache Efficiency</h2><div id="p_cache"></div></div>
+</div>
+<div class="row">
+  <div class="c" data-w="tasks"><h2>Tasks</h2><div class="tabs"><span class="tab on" data-f="w">In Progress</span><span class="tab" data-f="p">Pending</span><span class="tab" data-f="d">Done</span></div><div class="sc" id="tasks"></div></div>
+  <div class="c" data-w="billing"><h2>Billing Blocks</h2><div id="p_billing"></div></div>
+  <div class="c" data-w="tokens_model"><h2>Tokens by Model</h2><div id="p_models"></div></div>
 </div>
 <div class="section">Activity</div>
 <div class="row">
@@ -144,13 +168,10 @@ canvas{width:100%!important;display:block;cursor:crosshair}
 <div class="row">
   <div class="c" data-w="proj_sessions"><h2>Projects by Sessions</h2><div id="p_sess"></div></div>
   <div class="c" data-w="proj_tokens"><h2>Projects by Tokens</h2><div id="p_cost"></div></div>
-  <div class="c" data-w="health"><h2>Project Health</h2><div class="sc" id="health"></div></div>
-</div>
-<div class="section">Cost & Models</div>
-<div class="row">
-  <div class="c" data-w="billing"><h2>Billing Blocks</h2><div id="p_billing"></div></div>
-  <div class="c" data-w="tokens_model"><h2>Tokens by Model</h2><div id="p_models"></div></div>
   <div class="c" data-w="tokens_project"><h2>Tokens by Project</h2><div id="p_tokens"></div></div>
+</div>
+<div class="row two">
+  <div class="c" data-w="health"><h2>Project Health</h2><div class="sc" id="health"></div></div>
 </div>
 <div class="section">Tools & Skills</div>
 <div class="row">
@@ -367,20 +388,23 @@ async function load(){
   const avgPerDay=daily.length?(totalMin/daily.length/60).toFixed(1):"0";
   const streakText=streaks.current>0?" \xb7 "+streaks.current+"d streak":"";
   const longestText=streaks.longest>0?" \xb7 longest: "+streaks.longest+"d":"";
-  $("sub").textContent=stats.today+" \xb7 "+daily.length+" days \xb7 "+totalHours+"h total \xb7 "+avgPerDay+"h/day avg"+(stats.planValue?.n?" \xb7 "+money(stats.planValue.n)+" API value":"")+" \xb7 "+tok((stats.totalTokens?.n||0))+" tokens \xb7 "+stats.totalConvLines?.n?.toLocaleString()+" conversation lines"+streakText+longestText;
+  // Hero stats in greeting line
+  $("heroSessions").textContent=stats.sessions.n.toLocaleString();
+  $("heroCommits").textContent=stats.commits.n.toLocaleString();
+  $("heroCost").textContent=money(stats.planValue?.n||0);
+
+  // Subtitle
+  $("sub").textContent=daily.length+" days \xb7 "+totalHours+"h total \xb7 "+avgPerDay+"h/day \xb7 "+tok(stats.totalTokens?.n||0)+" tokens \xb7 "+stats.projects.n+" projects \xb7 "+(tm.completed||0)+" done \xb7 "+(tm.in_progress||0)+" wip"+streakText+longestText;
+
+  // Compact stats bar
   const sf=([n,l,c])=>'<div class="stat"><div class="n"'+(c?' style="color:'+c+'"':'')+'">'+n+'</div><div class="l">'+l+'</div></div>';
   $("stats").innerHTML=[
-    [stats.sessions.n.toLocaleString(),"sessions","var(--accent)"],
-    [stats.commits.n.toLocaleString(),"commits","var(--green)"],[stats.projects.n,"projects"],
-    [tm.completed||0,"done","var(--green)"],[tm.in_progress||0,"wip","var(--yellow)"],
-    [money(stats.planValue?.n||0),"api value","var(--accent)"],[tok(stats.totalTokens?.n||0),"tokens"]
-  ].map(sf).join("")+'<button class="more-btn" onclick="toggleMoreStats(this)">'+(localStorage.getItem("stats_more")==="1"?"less":"more")+'</button>';
-  $("stats2").innerHTML=[
     [stats.messages.n.toLocaleString(),"messages"],
-    [(stats.toolCalls?.n||0).toLocaleString(),"tool calls"],[(stats.thinkingBlocks?.n||0).toLocaleString(),"thinking"],
-    [tm.pending||0,"pending"],
-    [(stats.subagents?.n||0).toLocaleString(),"agents"],[(stats.errors?.n||0).toLocaleString(),"errors"],
-    [(stats.planSessions?.n||0),"plans"]
+    [(stats.toolCalls?.n||0).toLocaleString(),"tool calls"],
+    [(stats.thinkingBlocks?.n||0).toLocaleString(),"thinking"],
+    [(stats.subagents?.n||0).toLocaleString(),"agents"],
+    [(stats.errors?.n||0).toLocaleString(),"errors","var(--red)"],
+    [tok(stats.totalTokens?.n||0),"tokens"]
   ].map(sf).join("");
   if(localStorage.getItem("stats_more")==="1")$("stats2").style.display="flex";
 
