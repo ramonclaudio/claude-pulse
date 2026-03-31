@@ -52,7 +52,7 @@ function parseMessageContent(msg: Record<string, unknown>): Pick<ParsedRecord, "
         thinkingLen += block.thinking.length;
         parts.push(`<thinking>\n${block.thinking}\n</thinking>`);
       } else if (block.type === "tool_use") {
-        toolName = block.name || null;
+        toolName = block.name === "Skill" && block.input?.skill ? `Skill:${block.input.skill}` : (block.name || null);
         toolUseId = block.id || null;
         const inputStr = typeof block.input === "string" ? block.input : JSON.stringify(block.input);
         parts.push(`<tool_use name="${block.name}" id="${block.id}">\n${inputStr}\n</tool_use>`);
