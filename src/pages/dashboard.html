@@ -427,7 +427,7 @@ async function load(){
   const s=getComputedStyle(document.documentElement);const cl=[s.getPropertyValue('--border').trim(),"#c4a48a","#CC785C","#b35a38","#8a3820"][q];const el=document.createElement("div");el.className="d";el.style.background=cl;el.title=k+": "+v+" sessions";el.onclick=()=>setDay(k);hm.appendChild(el)}}}
 
   // WIP
-  if($("wip"))$("wip").innerHTML=gitState.length?gitState.map(g=>'<div class="wip-row"><span class="pj">'+e(nm(g.project_path))+'</span><span class="info">'+g.dirty_file_count+' dirty'+(g.stash_count?' \xb7 '+g.stash_count+' stash':'')+(g.current_branch?' \xb7 '+e(g.current_branch):'')+'</span></div>').join(""):'<div style="color:var(--dim)">all clean</div>';
+  if($("wip"))$("wip").innerHTML=gitState.length?'<div class="wip-row" style="pointer-events:none;opacity:.5;font-size:9px;padding:0 8px 4px"><span class="pj">project</span><span class="info">status</span></div>'+gitState.map(g=>'<div class="wip-row"><span class="pj">'+e(nm(g.project_path))+'</span><span class="info">'+g.dirty_file_count+' dirty'+(g.stash_count?' \xb7 '+g.stash_count+' stash':'')+(g.current_branch?' \xb7 '+e(g.current_branch):'')+'</span></div>').join(""):'<div style="color:var(--dim)">all clean</div>';
 
   // Billing Blocks
   const billing=await F("/api/billing-blocks");
@@ -451,6 +451,7 @@ async function load(){
       bhtml+='</div>';
     }
     if(past.length){
+      bhtml+=colHead(["block",["cost","60px"],["sess","20px"]]);
       bhtml+=past.map(b=>{
         const d=new Date(b.block_start);
         const label=d.toLocaleDateString("en",{month:"short",day:"numeric"})+' '+d.toLocaleTimeString("en",{hour:"2-digit",minute:"2-digit",hour12:false});
@@ -466,7 +467,7 @@ async function load(){
   function renderTasks(f){
     if(!$("tasks"))return;
     const fl=tasks.filter(t=>f==="w"?t.status==="in_progress":f==="p"?t.status==="pending":t.status==="completed");
-    $("tasks").innerHTML=fl.slice(0,60).map(t=>{
+    $("tasks").innerHTML='<div class="tk" style="pointer-events:none;opacity:.5;font-size:9px;padding:0 8px 4px"><span class="bg" style="visibility:hidden">wip</span><span style="color:var(--dim);font-size:9px">suite</span><span style="flex:1">subject</span><span style="color:var(--dim);font-size:9px">owner</span></div>'+fl.slice(0,60).map(t=>{
       const b=t.status==="completed"?"d":t.status==="in_progress"?"w":"p";
       const label=t.team_name||t.suite_id.slice(0,8);
       const owner=t.owner?'<span style="color:var(--purple);font-size:10px">'+e(t.owner)+'</span>':"";
@@ -479,7 +480,7 @@ async function load(){
   document.querySelectorAll(".tab").forEach(tab=>{tab.onclick=()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));tab.classList.add("on");renderTasks(tab.dataset.f)}});
 
   // Sessions
-  if($("sess"))$("sess").innerHTML=sessions.slice(0,50).map(s=>{
+  if($("sess"))$("sess").innerHTML='<div class="sn" style="pointer-events:none;opacity:.5;font-size:9px;padding:0 8px 4px"><span class="t">time</span><span class="pj">project</span><span class="pr">prompt</span><span class="m">duration</span></div>'+sessions.slice(0,50).map(s=>{
     const d=s.started_at?new Date(s.started_at):null;
     const time=d?d.toLocaleTimeString("en",{hour:"2-digit",minute:"2-digit",hour12:false}):"?";
     const toks=(s.input_tokens||s.output_tokens)?'<span style="color:var(--purple)">'+tok((s.input_tokens||0)+(s.output_tokens||0))+'t</span>':"";
@@ -488,7 +489,7 @@ async function load(){
   }).join("");
 
   // Commits
-  if($("commits"))$("commits").innerHTML=commits.slice(0,50).map(c=>{
+  if($("commits"))$("commits").innerHTML='<div class="cm" style="pointer-events:none;opacity:.5;font-size:9px;padding:0 8px 4px"><span class="pj">project</span><span class="tp" style="background:transparent">type</span><span class="msg">message</span><span class="dt">date</span></div>'+commits.slice(0,50).map(c=>{
     const d=c.date?c.date.slice(5,10):"?";
     const tp=c.commit_type?'<span class="tp">'+c.commit_type+'</span>':"";
     return '<div class="cm"><span class="pj">'+e(nm(c.project_path))+'</span>'+tp+'<span class="msg">'+e(c.message)+'</span><span class="dt">'+d+'</span></div>';
@@ -570,7 +571,7 @@ async function load(){
   });
   F("/api/session-facets").then(facets=>{
     if($("p_facets")&&facets?.length){
-      $("p_facets").innerHTML=facets.slice(0,20).map(f=>{
+      $("p_facets").innerHTML='<div class="sn" style="pointer-events:none;opacity:.5;font-size:9px;padding:0 8px 4px"><span style="width:120px;flex-shrink:0">outcome</span><span class="pr" style="flex:1">summary</span><span style="flex-shrink:0">helpfulness</span></div>'+facets.slice(0,20).map(f=>{
         const colors={fully_achieved:"var(--green)",mostly_achieved:"#788c5d",partially_achieved:"var(--yellow)",not_achieved:"var(--red)",unclear_from_transcript:"var(--dim)"};
         const c=colors[f.outcome]||"var(--dim)";
         return '<div class="sn" onclick="window.open(\'/chat?s='+f.session_id+'\',\'_blank\')"><span style="color:'+c+';font-size:9px;width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(f.outcome||"?")+'</span><span class="pr" style="flex:1">'+e((f.brief_summary||"").slice(0,80))+'</span><span style="color:var(--dim);font-size:9px;flex-shrink:0">'+e(f.claude_helpfulness||"")+'</span></div>';
@@ -579,7 +580,7 @@ async function load(){
   });
 
   const staleness=await F("/api/project-staleness");
-  if($("health"))$("health").innerHTML=staleness.map(p=>{const lastDate=p.last_commit_date||p.last_session_date;const daysAgo=lastDate?Math.round((Date.now()-new Date(lastDate).getTime())/86400000):999;const staleColor=daysAgo<7?"var(--green)":daysAgo<30?"var(--yellow)":daysAgo<90?"var(--red)":"var(--faint)";const staleText=daysAgo<1?"today":daysAgo<7?daysAgo+"d ago":daysAgo<30?Math.round(daysAgo/7)+"w ago":daysAgo<365?Math.round(daysAgo/30)+"mo ago":"1y+";const info=[];if(p.total_commits)info.push(p.total_commits+"c");if(p.total_sessions)info.push(p.total_sessions+"s");return '<div class="proj-row" onclick="setProj(\''+p.path.replace(/'/g,"\\'")+'\')"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(p.name)+'</span><span class="tp">'+p.type+'</span><span style="color:'+staleColor+';font-size:10px;width:60px;text-align:right;flex-shrink:0">'+staleText+'</span><span class="info" style="width:80px;text-align:right;flex-shrink:0">'+info.join(" \xb7 ")+'</span></div>';}).join("");
+  if($("health"))$("health").innerHTML=colHead(["project",["type","50px"],["last active","60px"],["stats","80px"]])+staleness.map(p=>{const lastDate=p.last_commit_date||p.last_session_date;const daysAgo=lastDate?Math.round((Date.now()-new Date(lastDate).getTime())/86400000):999;const staleColor=daysAgo<7?"var(--green)":daysAgo<30?"var(--yellow)":daysAgo<90?"var(--red)":"var(--faint)";const staleText=daysAgo<1?"today":daysAgo<7?daysAgo+"d ago":daysAgo<30?Math.round(daysAgo/7)+"w ago":daysAgo<365?Math.round(daysAgo/30)+"mo ago":"1y+";const info=[];if(p.total_commits)info.push(p.total_commits+"c");if(p.total_sessions)info.push(p.total_sessions+"s");return '<div class="proj-row" onclick="setProj(\''+p.path.replace(/'/g,"\\'")+'\')"><span class="nm" style="width:auto;flex:1;min-width:0">'+e(p.name)+'</span><span class="tp">'+p.type+'</span><span style="color:'+staleColor+';font-size:10px;width:60px;text-align:right;flex-shrink:0">'+staleText+'</span><span class="info" style="width:80px;text-align:right;flex-shrink:0">'+info.join(" \xb7 ")+'</span></div>';}).join("");
 }
 load();
 </script></body></html>
