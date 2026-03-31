@@ -65,7 +65,7 @@ interface SessionAgg { total_lines: number; total_minutes: number }
 interface CountRow { n: number }
 
 const PAGES_DIR = import.meta.dir + "/../pages";
-let CORS = { "access-control-allow-origin": "http://localhost:3000" };
+let CORS = { "access-control-allow-origin": "http://localhost:3847" };
 const STRIP_XML_RE = /<(thinking|tool_use|tool_result)[^>]*>[\s\S]*?<\/\1>/g;
 
 const SQL_CONV_AGG = `SELECT
