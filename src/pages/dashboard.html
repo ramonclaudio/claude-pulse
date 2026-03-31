@@ -532,14 +532,14 @@ async function load(){
       }).join("");
     }
     if($("p_turnlat")&&turnLat){
-      $("p_turnlat").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
+      $("p_turnlat").innerHTML=[
         [Math.round(turnLat.avg||0)+"ms","AVG"],[Math.round(turnLat.p50||0)+"ms","P50"],[Math.round(turnLat.p95||0)+"ms","P95"]
-      ].map(sf).join("")+'</div>';
+      ].map(sf).join("");
     }
     if($("p_web")&&webUsage){
-      $("p_web").innerHTML='<div class="stats" style="margin:0;gap:12px">'+[
-        [(webUsage.searches||0).toLocaleString(),"total searches"],[(webUsage.fetches||0).toLocaleString(),"fetches"],[(webUsage.sessions_with_web||0),"sessions"]
-      ].map(sf).join("")+'</div>';
+      $("p_web").innerHTML=[
+        [(webUsage.searches||0).toLocaleString(),"searches"],[(webUsage.fetches||0).toLocaleString(),"fetches"],[(webUsage.sessions_with_web||0),"sessions"]
+      ].map(sf).join("");
     }
   });
 
