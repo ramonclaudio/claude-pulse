@@ -1,27 +1,40 @@
 # Claude Pulse
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Bun](https://img.shields.io/badge/bun-%23000000.svg?style=flat&logo=bun&logoColor=white)](https://bun.sh)
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+
 Local analytics dashboard and chat history viewer for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Turns your conversation history into a searchable database with a live web dashboard, cost tracking, and full session replay.
 
-All data stays on your machine. No API calls, no telemetry, no accounts.
+All data stays on your machine. Zero runtime dependencies. No API calls, no telemetry, no accounts.
 
-## Screenshots
+<!-- Add screenshots/GIFs here after first deploy -->
+<!-- ![Dashboard](docs/dashboard.png) -->
+<!-- ![Chat History](docs/chat.png) -->
 
-### Dashboard
-Track sessions, tokens, costs, tool usage, commit activity, and project health at a glance.
+## Why Claude Pulse
 
-### Chat History
-Browse and search every conversation. View thinking blocks, tool calls with inline diffs, and full message timelines.
-
-## Why
-
-Claude Code stores rich data locally (conversations, sessions, tasks, billing, git context) but gives you no way to see it. Claude Pulse reads that data and shows you:
+Claude Code stores rich data locally but gives you no way to see it. Claude Pulse reads that data and shows you:
 
 - How much you're spending and on which projects
 - Which tools fail the most and why
 - Your coding patterns (time of day, session duration, streaks)
-- Full conversation history with search
+- Full conversation history with search and session replay
 - Project health across all your repos
-- Team task status and skill usage
+- Team task status and skill error rates
+
+### How it compares
+
+| Feature | Claude Pulse | ccusage | Sniffly | Confabulous |
+|---|---|---|---|---|
+| Web dashboard | Yes | No (CLI only) | Yes | Yes |
+| Chat history replay | Yes (with diffs) | No | No | Yes |
+| Tool/skill error rates | Yes | No | Yes | No |
+| Zero dependencies | Yes (Bun only) | Node + deps | Python + deps | Docker |
+| Local-only (no server) | Yes | Yes | No | No |
+| Raw SQL access | Yes | No | No | No |
+| Git commit analytics | Yes | No | No | Yes |
+| Syntax-highlighted diffs | Yes | No | No | No |
 
 ## Quick Start
 
@@ -249,6 +262,15 @@ src/
   utils/                Dates, formatting, git, syntax highlighting, path helpers
 ```
 
+## Related
+
+- [ccusage](https://github.com/ryoppippi/ccusage) - CLI token/cost tracker for Claude Code
+- [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) - Curated list of Claude Code tools
+
 ## License
 
 MIT
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=ramonclaudio/claude-pulse&type=Date)](https://star-history.com/#ramonclaudio/claude-pulse&Date)
