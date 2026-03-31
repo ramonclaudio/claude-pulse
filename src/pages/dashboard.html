@@ -407,9 +407,8 @@ async function load(){
   donut($("c_types"),types,"commit_type");
   bar($("c_cpd"),cpd,"d","total",(d)=>d.feats>d.fixes?"#788c5d":"#c46686");
 
-  bars($("p_sess"),projs,"project_path","sessions",150,"var(--green)",d=>d.sessions+" \xb7 "+dur(d.minutes),true);
-  bars($("p_cost"),costProj.filter(c=>c.inp>0),"project_path","inp",150,"var(--yellow)",d=>tok(d.inp)+" in / "+tok(d.outp)+" out",true);
-  bars($("p_tokens"),costProj.filter(c=>c.inp>0),"project_path","inp",150,"var(--purple)",d=>tok(d.inp+d.outp),true);
+  if($("p_sess"))$("p_sess").innerHTML=projs.slice(0,12).map(d=>'<div class="proj-row" onclick="setProj(\''+d.project_path.replace(/'/g,"\\'")+'\')">'+'<span class="nm" style="width:auto;flex:1;min-width:0">'+e(nm(d.project_path))+'</span>'+'<span class="v" style="min-width:30px">'+d.sessions+'</span>'+'<span class="v" style="color:var(--dim);min-width:70px">'+dur(d.minutes)+'</span>'+'</div>').join("");
+  if($("p_cost"))$("p_cost").innerHTML=costProj.filter(c=>c.inp>0).slice(0,12).map(d=>'<div class="proj-row" onclick="setProj(\''+d.project_path.replace(/'/g,"\\'")+'\')">'+'<span class="nm" style="width:auto;flex:1;min-width:0">'+e(nm(d.project_path))+'</span>'+'<span class="v" style="min-width:90px">'+tok(d.inp)+' in / '+tok(d.outp)+' out</span>'+'</div>').join("");
 
   // Branches
   if($("p_branches")){
